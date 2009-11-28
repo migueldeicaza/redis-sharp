@@ -1,4 +1,6 @@
 using System;
+using System.Text;
+using System.Collections.Generic;
 
 class Test {
 	static void Main ()
@@ -13,6 +15,15 @@ class Test {
 		if (r.TypeOf ("foo") != Redis.KeyType.String)
 			Console.WriteLine ("error: type is not string");
 		r.Set ("bar", "foo");
+
+		var arr = r.GetKeys ("foo", "bar");
+		if (arr.Length != 2)
+			Console.WriteLine ("error, expected 2 values");
+		if (arr [0].Length != 3)
+			Console.WriteLine ("error, expected foo to be 3");
+		if (arr [1].Length != 3)
+			Console.WriteLine ("error, expected bar to be 3");
+		
 		r ["one"] = "world";
 		if (r.GetSet ("one", "newvalue") != "world")
 			Console.WriteLine ("error: Getset failed");
@@ -45,5 +56,11 @@ class Test {
 		foreach (var k in info.Keys){
 			Console.WriteLine ("{0} -> {1}", k, info [k]);
 		}
+
+		var dict = new Dictionary<string, byte[]>();
+		dict ["hello"] = Encoding.UTF8.GetBytes ("world");
+		dict ["goodbye"] = Encoding.UTF8.GetBytes ("my dear");
+		
+		r.Set (dict);
 	}
 }

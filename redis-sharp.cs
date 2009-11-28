@@ -36,6 +36,9 @@ public class Redis : IDisposable {
 	
 	public Redis (string host, int port)
 	{
+		if (host == null)
+			throw new ArgumentNullException ("host");
+		
 		Host = host;
 		Port = port;
 		SendTimeout = -1;
@@ -71,11 +74,21 @@ public class Redis : IDisposable {
 
 	public void Set (string key, string value)
 	{
+		if (key == null)
+			throw new ArgumentNullException ("key");
+		if (value == null)
+			throw new ArgumentNullException ("value");
+		
 		Set (key, Encoding.UTF8.GetBytes (value));
 	}
 	
 	public void Set (string key, byte [] value)
 	{
+		if (key == null)
+			throw new ArgumentNullException ("key");
+		if (value == null)
+			throw new ArgumentNullException ("value");
+
 		if (value.Length > 1073741824)
 			throw new ArgumentException ("value exceeds 1G", "value");
 
@@ -84,18 +97,71 @@ public class Redis : IDisposable {
 		ExpectSuccess ();
 	}
 
+	public void SetNX (string key, string value)
+	{
+		if (key == null)
+			throw new ArgumentNullException ("key");
+		if (value == null)
+			throw new ArgumentNullException ("value");
+		
+		SetNX (key, Encoding.UTF8.GetBytes (value));
+	}
+	
+	public void SetNX (string key, byte [] value)
+	{
+		if (key == null)
+			throw new ArgumentNullException ("key");
+		if (value == null)
+			throw new ArgumentNullException ("value");
+
+		if (value.Length > 1073741824)
+			throw new ArgumentException ("value exceeds 1G", "value");
+
+		if (!SendDataCommand (value, "SETNX {0} {1}\r\n", key, value.Length))
+			throw new Exception ("Unable to connect");
+		ExpectSuccess ();
+	}
+
+	public void Set (IDictionary<string,byte []> dict)
+	{
+		if (dict == null)
+			throw new ArgumentNullException ("dict");
+
+		var ms = new MemoryStream ();
+		foreach (var key in dict.Keys){
+			var val = dict [key];
+			
+			var s = "$" + val.Length.ToString () + "\r\n";
+			var b = Encoding.UTF8.GetBytes (s);
+			ms.Write (b, 0, b.Length);
+			ms.Write (val, 0, val.Length);
+		}
+		
+		SendDataCommand (ms.ToArray (), "MSET\r\n");
+		ExpectSuccess ();
+	}
+	
 	public byte [] Get (string key)
 	{
+		if (key == null)
+			throw new ArgumentNullException ("key");
 		return SendExpectData (null, "GET " + key + "\r\n");
 	}
 
 	public string GetString (string key)
 	{
+		if (key == null)
+			throw new ArgumentNullException ("key");
 		return Encoding.UTF8.GetString (Get (key));
 	}
 
 	public byte [] GetSet (string key, byte [] value)
 	{
+		if (key == null)
+			throw new ArgumentNullException ("key");
+		if (value == null)
+			throw new ArgumentNullException ("value");
+		
 		if (value.Length > 1073741824)
 			throw new ArgumentException ("value exceeds 1G", "value");
 
@@ -107,6 +173,10 @@ public class Redis : IDisposable {
 
 	public string GetSet (string key, string value)
 	{
+		if (key == null)
+			throw new ArgumentNullException ("key");
+		if (value == null)
+			throw new ArgumentNullException ("value");
 		return Encoding.UTF8.GetString (GetSet (key, Encoding.UTF8.GetBytes (value)));
 	}
 	
@@ -268,8 +338,6 @@ public class Redis : IDisposable {
 		return ReadLine ();
 	}	
 	
-	static byte [] empty = new byte [0];
-
 	byte [] SendExpectData (byte[] data, string cmd, params object [] args)
 	{
 		if (!SendDataCommand (data, cmd, args))
@@ -290,7 +358,7 @@ public class Redis : IDisposable {
 			throw new ResponseException (r.StartsWith ("-ERR") ? r.Substring (5) : r.Substring (1));
 		if (c == '$'){
 			if (r == "$-1")
-				return empty;
+				return null;
 			int n;
 			
 			if (Int32.TryParse (r.Substring (1), out n)){
@@ -307,41 +375,57 @@ public class Redis : IDisposable {
 
 	public bool ContainsKey (string key)
 	{
+		if (key == null)
+			throw new ArgumentNullException ("key");
 		return SendExpectInt ("EXISTS " + key + "\r\n") == 1;
 	}
 
 	public bool Remove (string key)
 	{
+		if (key == null)
+			throw new ArgumentNullException ("key");
 		return SendExpectInt ("DEL " + key + "\r\n", key) == 1;
 	}
 
 	public int Remove (params string [] args)
 	{
+		if (args == null)
+			throw new ArgumentNullException ("args");
 		return SendExpectInt ("DEL " + string.Join (" ", args) + "\r\n");
 	}
 
 	public int Increment (string key)
 	{
+		if (key == null)
+			throw new ArgumentNullException ("key");
 		return SendExpectInt ("INCR " + key + "\r\n");
 	}
 
 	public int Increment (string key, int count)
 	{
+		if (key == null)
+			throw new ArgumentNullException ("key");
 		return SendExpectInt ("INCRBY {0} {1}\r\n", key, count);
 	}
 
 	public int Decrement (string key)
 	{
+		if (key == null)
+			throw new ArgumentNullException ("key");
 		return SendExpectInt ("DECR " + key + "\r\n");
 	}
 
 	public int Decrement (string key, int count)
 	{
+		if (key == null)
+			throw new ArgumentNullException ("key");
 		return SendExpectInt ("DECRBY {0} {1}\r\n", key, count);
 	}
 
 	public KeyType TypeOf (string key)
 	{
+		if (key == null)
+			throw new ArgumentNullException ("key");
 		switch (SendExpectString ("TYPE {0}\r\n", key)){
 		case "none":
 			return KeyType.None;
@@ -362,21 +446,31 @@ public class Redis : IDisposable {
 
 	public bool Rename (string oldKeyname, string newKeyname)
 	{
+		if (oldKeyname == null)
+			throw new ArgumentNullException ("oldKeyname");
+		if (newKeyname == null)
+			throw new ArgumentNullException ("newKeyname");
 		return SendGetString ("RENAME {0} {1}\r\n", oldKeyname, newKeyname) [0] == '+';
 	}
 
 	public bool Expire (string key, int seconds)
 	{
+		if (key == null)
+			throw new ArgumentNullException ("key");
 		return SendExpectInt ("EXPIRE {0} {1}\r\n", key, seconds) == 1;
 	}
 
 	public bool ExpireAt (string key, int time)
 	{
+		if (key == null)
+			throw new ArgumentNullException ("key");
 		return SendExpectInt ("EXPIREAT {0} {1}\r\n", key, time) == 1;
 	}
 
 	public int TimeToLive (string key)
 	{
+		if (key == null)
+			throw new ArgumentNullException ("key");
 		return SendExpectInt ( "TTL {0}\r\n", key);
 	}
 	
@@ -433,8 +527,44 @@ public class Redis : IDisposable {
 
 	public string [] GetKeys (string pattern)
 	{
+		if (pattern == null)
+			throw new ArgumentNullException ("key");
 		return Encoding.UTF8.GetString (SendExpectData (null, "KEYS {0}\r\n", pattern)).Split (' ');
 	}
+
+#if false
+	// Not well documented how bulk operations work
+	public byte [][] GetKeys (params string [] keys)
+	{
+		if (keys == null)
+			throw new ArgumentNullException ("key1");
+		if (keys.Length == 0)
+			throw new ArgumentException ("keys");
+
+		if (!SendDataCommand (null, "MGET {0}\r\n", string.Join (" ", keys)))
+			throw new Exception ("Unable to connect");
+		int c = bstream.ReadByte ();
+		if (c == -1)
+			throw new ResponseException ("No more data");
+
+		var s = ReadLine ();
+		Log ("R: " + s);
+		if (c == '-')
+			throw new ResponseException (s.StartsWith ("ERR") ? s.Substring (4) : s);
+		if (c == '*'){
+			int count;
+			if (int.TryParse (s, out count)){
+				byte [][] result = new byte [count][];
+				
+				for (int i = 0; i < count; i++)
+					result [i] = ReadData ();
+
+				return result;
+			}
+		}
+		throw new ResponseException ("Unknown reply on multi-request: " + c + s);
+	}
+#endif
 	
 	public void Dispose ()
 	{
