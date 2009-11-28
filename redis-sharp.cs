@@ -122,6 +122,8 @@ public class Redis : IDisposable {
 		ExpectSuccess ();
 	}
 
+#if false
+	// Not well documented how bulk operations work
 	public void Set (IDictionary<string,byte []> dict)
 	{
 		if (dict == null)
@@ -140,7 +142,7 @@ public class Redis : IDisposable {
 		SendDataCommand (ms.ToArray (), "MSET\r\n");
 		ExpectSuccess ();
 	}
-	
+#endif
 	public byte [] Get (string key)
 	{
 		if (key == null)
@@ -532,8 +534,6 @@ public class Redis : IDisposable {
 		return Encoding.UTF8.GetString (SendExpectData (null, "KEYS {0}\r\n", pattern)).Split (' ');
 	}
 
-#if false
-	// Not well documented how bulk operations work
 	public byte [][] GetKeys (params string [] keys)
 	{
 		if (keys == null)
@@ -564,7 +564,6 @@ public class Redis : IDisposable {
 		}
 		throw new ResponseException ("Unknown reply on multi-request: " + c + s);
 	}
-#endif
 	
 	public void Dispose ()
 	{

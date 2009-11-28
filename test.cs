@@ -61,6 +61,6 @@ class Test {
 		dict ["hello"] = Encoding.UTF8.GetBytes ("world");
 		dict ["goodbye"] = Encoding.UTF8.GetBytes ("my dear");
 		
-		r.Set (dict);
+		//r.Set (dict);
 	}
 }
