@@ -97,17 +97,17 @@ public class Redis : IDisposable {
 		ExpectSuccess ();
 	}
 
-	public void SetNX (string key, string value)
+	public bool SetNX (string key, string value)
 	{
 		if (key == null)
 			throw new ArgumentNullException ("key");
 		if (value == null)
 			throw new ArgumentNullException ("value");
 		
-		SetNX (key, Encoding.UTF8.GetBytes (value));
+		return SetNX (key, Encoding.UTF8.GetBytes (value));
 	}
 	
-	public void SetNX (string key, byte [] value)
+	public bool SetNX (string key, byte [] value)
 	{
 		if (key == null)
 			throw new ArgumentNullException ("key");
@@ -117,9 +117,7 @@ public class Redis : IDisposable {
 		if (value.Length > 1073741824)
 			throw new ArgumentException ("value exceeds 1G", "value");
 
-		if (!SendDataCommand (value, "SETNX {0} {1}\r\n", key, value.Length))
-			throw new Exception ("Unable to connect");
-		ExpectSuccess ();
+		return SendDataExpectInt (value, "SETNX {0} {1}\r\n", key, value.Length) > 0 ? true : false;
 	}
 
 #if false
@@ -287,6 +285,27 @@ public class Redis : IDisposable {
 			throw new Exception ("Unable to connect");
 
 		ExpectSuccess ();
+	}	
+
+	int SendDataExpectInt (byte[] data, string cmd, params object [] args)
+	{
+		if (!SendDataCommand (data, cmd, args))
+			throw new Exception ("Unable to connect");
+
+		int c = bstream.ReadByte ();
+		if (c == -1)
+			throw new ResponseException ("No more data");
+
+		var s = ReadLine ();
+		Log ("R: " + s);
+		if (c == '-')
+			throw new ResponseException (s.StartsWith ("ERR") ? s.Substring (4) : s);
+		if (c == ':'){
+			int i;
+			if (int.TryParse (s, out i))
+				return i;
+		}
+		throw new ResponseException ("Unknown reply on integer request: " + c + s);
 	}	
 
 	int SendExpectInt (string cmd, params object [] args)
