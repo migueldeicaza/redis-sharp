@@ -550,7 +550,10 @@ public class Redis : IDisposable {
 	{
 		if (pattern == null)
 			throw new ArgumentNullException ("key");
-		return Encoding.UTF8.GetString (SendExpectData (null, "KEYS {0}\r\n", pattern)).Split (' ');
+		var keys = SendExpectData (null, "KEYS {0}\r\n", pattern);
+		if (keys.Length == 0)
+				return new string[0];
+		return Encoding.UTF8.GetString (keys).Split (' ');
 	}
 
 	public byte [][] GetKeys (params string [] keys)
