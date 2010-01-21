@@ -16,6 +16,7 @@ using System.Collections.Generic;
 using System.Net.Sockets;
 using System.Text;
 using System.Diagnostics;
+using System.Linq;
 
 public class Redis : IDisposable {
 	Socket socket;
@@ -120,27 +121,36 @@ public class Redis : IDisposable {
 		return SendDataExpectInt (value, "SETNX {0} {1}\r\n", key, value.Length) > 0 ? true : false;
 	}
 
-#if false
-	// Not well documented how bulk operations work
+	public void Set (IDictionary<string,string> dict)
+	{
+	  Set(dict.ToDictionary(k => k.Key, v => Encoding.UTF8.GetBytes(v.Value)));
+	}
+
 	public void Set (IDictionary<string,byte []> dict)
 	{
 		if (dict == null)
 			throw new ArgumentNullException ("dict");
 
+		var nl = Encoding.UTF8.GetBytes ("\r\n");
+
 		var ms = new MemoryStream ();
 		foreach (var key in dict.Keys){
 			var val = dict [key];
-			
-			var s = "$" + val.Length.ToString () + "\r\n";
-			var b = Encoding.UTF8.GetBytes (s);
-			ms.Write (b, 0, b.Length);
+
+			var kLength = Encoding.UTF8.GetBytes ("$" + key.Length + "\r\n");
+			var k = Encoding.UTF8.GetBytes (key + "\r\n");
+			var vLength = Encoding.UTF8.GetBytes ("$" + val.Length + "\r\n");
+			ms.Write (kLength, 0, kLength.Length);
+			ms.Write (k, 0, k.Length);
+			ms.Write (vLength, 0, vLength.Length);
 			ms.Write (val, 0, val.Length);
+			ms.Write (nl, 0, nl.Length);
 		}
 		
-		SendDataCommand (ms.ToArray (), "MSET\r\n");
+		SendDataCommand (ms.ToArray (), "*" + (dict.Count * 2 + 1) + "\r\n$4\r\nMSET\r\n");
 		ExpectSuccess ();
 	}
-#endif
+
 	public byte [] Get (string key)
 	{
 		if (key == null)
