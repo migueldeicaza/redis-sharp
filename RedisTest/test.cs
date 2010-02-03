@@ -81,5 +81,10 @@ class Test {
         var value = Encoding.UTF8.GetString(r.ListIndex("alist", 1));
         if(!value.Equals("another value"))
           Console.WriteLine("error: Received {0} and should have been 'another value'", value);
+        value = Encoding.UTF8.GetString(r.LeftPop("alist"));
+        if (!value.Equals("avalue"))
+            Console.WriteLine("error: Received {0} and should have been 'avalue'", value);
+        if (r.ListLength("alist") != 1)
+            Console.WriteLine("error: List should have one element after pop");
 	}
 }

@@ -624,6 +624,13 @@ public class Redis : IDisposable {
         return ReadData();
     }
 
+    public byte[] LeftPop(string key)
+    {
+        SendCommand("LPOP {0}\r\n", key);
+        return ReadData();
+    }
+
+
 	public void Dispose ()
 	{
 		Dispose (true);
