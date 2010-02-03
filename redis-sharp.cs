@@ -647,17 +647,17 @@ public class Redis : IDisposable {
 
 
     #region Set commands
-    public bool SetAdd(string key, byte[] member)
+    public bool AddToSet(string key, byte[] member)
     {
         return SendDataExpectInt(member, "SADD {0} {1}\r\n", key, member.Length) > 0 ? true : false;
     }
 
-    public bool SetAdd(string key, string member)
+    public bool AddToSet(string key, string member)
     {
-        return SetAdd(key, Encoding.UTF8.GetBytes(member));
+        return AddToSet(key, Encoding.UTF8.GetBytes(member));
     }
 
-    public int SetCardinality(string key)
+    public int CardinalityOfSet(string key)
     {
         return SendDataExpectInt(null, "SCARD {0}\r\n", key);
     }

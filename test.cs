@@ -92,18 +92,18 @@ class Test {
             Console.WriteLine("error: Range did not return the right values");
 
         assert(
-            r.SetAdd("FOO", Encoding.UTF8.GetBytes("BAR")), 
+            r.AddToSet("FOO", Encoding.UTF8.GetBytes("BAR")), 
             "Problem adding to set"
             );
         assert(
-            r.SetAdd("FOO", Encoding.UTF8.GetBytes("BAZ")),
+            r.AddToSet("FOO", Encoding.UTF8.GetBytes("BAZ")),
             "Problem adding to set"
             );
         assert(
-            r.SetAdd("FOO", "Hoge"),
+            r.AddToSet("FOO", "Hoge"),
             "Problem adding string to set"
             );
-        assert(r.SetCardinality("FOO") == 3, "Cardinality should have been 3 after adding 3 items to set");
+        assert(r.CardinalityOfSet("FOO") == 3, "Cardinality should have been 3 after adding 3 items to set");
 	}
 
     static void assert(bool condition, string message)
