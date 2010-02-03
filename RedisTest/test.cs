@@ -74,5 +74,10 @@ class Test {
 		
 		//r.Set (dict);
 
+        r.RPush("alist", "avalue");
+        r.RPush("alist", "another value");
+        if (r.ListLength("alist") != 2)
+            Console.WriteLine("error: List length should have been 2");
+
 	}
 }
