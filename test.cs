@@ -104,6 +104,8 @@ class Test {
             "Problem adding string to set"
             );
         assert(r.CardinalityOfSet("FOO") == 3, "Cardinality should have been 3 after adding 3 items to set");
+        assert(r.IsMemberOfSet("FOO", Encoding.UTF8.GetBytes("BAR")), "BAR should have been in the set");
+        assert(r.IsMemberOfSet("FOO", "BAR"), "BAR should have been in the set");
 	}
 
     static void assert(bool condition, string message)
