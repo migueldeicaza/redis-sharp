@@ -621,7 +621,7 @@ public class Redis : IDisposable {
     }
 
 
-    public void RPush(string key, string value)
+    public void RightPush(string key, string value)
     {
 
         SendExpectSuccess("RPUSH {0} {1}\r\n{2}\r\n", key, value.Length, value);

@@ -74,8 +74,8 @@ class Test {
 		
 		//r.Set (dict);
 
-        r.RPush("alist", "avalue");
-        r.RPush("alist", "another value");
+        r.RightPush("alist", "avalue");
+        r.RightPush("alist", "another value");
         if (r.ListLength("alist") != 2)
             Console.WriteLine("error: List length should have been 2");
         var value = Encoding.UTF8.GetString(r.ListIndex("alist", 1));
@@ -86,7 +86,7 @@ class Test {
             Console.WriteLine("error: Received {0} and should have been 'avalue'", value);
         if (r.ListLength("alist") != 1)
             Console.WriteLine("error: List should have one element after pop");
-        r.RPush("alist", "yet another value");
+        r.RightPush("alist", "yet another value");
         byte[][] values = r.ListRange("alist", 0, 1);
         if (!Encoding.UTF8.GetString(values[0]).Equals("another value"))
             Console.WriteLine("error: Range did not return the right values");
