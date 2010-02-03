@@ -526,6 +526,11 @@ public class Redis : IDisposable {
 		SendGetString ("SHUTDOWN\r\n");
 	}
 
+    public void FlushAll()
+    {
+        SendGetString("FLUSHALL\r\n");
+    }
+
 	const long UnixEpoch = 621355968000000000L;
 
 	public DateTime LastSave {
@@ -552,7 +557,12 @@ public class Redis : IDisposable {
 
 	public string [] Keys {
 		get {
-			return Encoding.UTF8.GetString (SendExpectData (null, "KEYS *\r\n")).Split (' ');
+            string commandResponse = Encoding.UTF8.GetString (SendExpectData (null, "KEYS *\r\n"));
+            if(commandResponse.Length < 1) {
+                return new string[0];
+            } else {
+			return commandResponse.Split (' ');
+            }
 		}
 	}
 

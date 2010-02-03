@@ -13,6 +13,10 @@ class Test {
             r = new Redis();
         }
 
+        r.Set("foo", "bar");
+        r.FlushAll();
+        if (r.Keys.Length > 0)
+            Console.WriteLine("error: there should be no keys but there were {0}", r.Keys.Length);
     	r.Set ("foo", "bar");
 		if (r.Keys.Length < 1)
 			Console.WriteLine ("error: there should be at least one key");
@@ -69,5 +73,6 @@ class Test {
 		dict ["goodbye"] = Encoding.UTF8.GetBytes ("my dear");
 		
 		//r.Set (dict);
+
 	}
 }
