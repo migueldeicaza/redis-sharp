@@ -78,6 +78,8 @@ class Test {
         r.RPush("alist", "another value");
         if (r.ListLength("alist") != 2)
             Console.WriteLine("error: List length should have been 2");
-
+        var value = Encoding.UTF8.GetString(r.ListIndex("alist", 1));
+        if(!value.Equals("another value"))
+          Console.WriteLine("error: Received {0} and should have been 'another value'", value);
 	}
 }

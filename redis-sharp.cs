@@ -618,6 +618,12 @@ public class Redis : IDisposable {
         return SendExpectInt("LLEN {0}\r\n", key);
     }
 
+    public byte[] ListIndex(string key, int index)
+    {
+        SendCommand("LINDEX {0} {1}\r\n", key, index);
+        return ReadData();
+    }
+
 	public void Dispose ()
 	{
 		Dispose (true);
