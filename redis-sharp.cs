@@ -614,7 +614,7 @@ public class Redis : IDisposable {
         throw new ResponseException("Unknown reply on multi-request: " + c + s);
     }
 
-
+    #region List commands
     public byte[][] ListRange(string key, int start, int end)
     {
         return SendDataCommandExpectMultiBulkReply(null, "LRANGE {0} {1} {2}\r\n", key, start, end);
@@ -643,9 +643,28 @@ public class Redis : IDisposable {
         SendCommand("LPOP {0}\r\n", key);
         return ReadData();
     }
+    #endregion
 
 
-	public void Dispose ()
+    #region Set commands
+    public bool SetAdd(string key, byte[] member)
+    {
+        return SendDataExpectInt(member, "SADD {0} {1}\r\n", key, member.Length) > 0 ? true : false;
+    }
+
+    public bool SetAdd(string key, string member)
+    {
+        return SetAdd(key, Encoding.UTF8.GetBytes(member));
+    }
+
+    public int SetCardinality(string key)
+    {
+        return SendDataExpectInt(null, "SCARD {0}\r\n", key);
+    }
+
+    #endregion
+
+    public void Dispose ()
 	{
 		Dispose (true);
 		GC.SuppressFinalize (this);

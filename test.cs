@@ -90,5 +90,27 @@ class Test {
         byte[][] values = r.ListRange("alist", 0, 1);
         if (!Encoding.UTF8.GetString(values[0]).Equals("another value"))
             Console.WriteLine("error: Range did not return the right values");
+
+        assert(
+            r.SetAdd("FOO", Encoding.UTF8.GetBytes("BAR")), 
+            "Problem adding to set"
+            );
+        assert(
+            r.SetAdd("FOO", Encoding.UTF8.GetBytes("BAZ")),
+            "Problem adding to set"
+            );
+        assert(
+            r.SetAdd("FOO", "Hoge"),
+            "Problem adding string to set"
+            );
+        assert(r.SetCardinality("FOO") == 3, "Cardinality should have been 3 after adding 3 items to set");
 	}
+
+    static void assert(bool condition, string message)
+    {
+        if (!condition)
+        {
+            Console.WriteLine("error: {0}", message);
+        }
+    }
 }
