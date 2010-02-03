@@ -86,5 +86,9 @@ class Test {
             Console.WriteLine("error: Received {0} and should have been 'avalue'", value);
         if (r.ListLength("alist") != 1)
             Console.WriteLine("error: List should have one element after pop");
+        r.RPush("alist", "yet another value");
+        byte[][] values = r.ListRange("alist", 0, 1);
+        if (!Encoding.UTF8.GetString(values[0]).Equals("another value"))
+            Console.WriteLine("error: Range did not return the right values");
 	}
 }

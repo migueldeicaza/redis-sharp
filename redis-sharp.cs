@@ -582,30 +582,44 @@ public class Redis : IDisposable {
 			throw new ArgumentNullException ("key1");
 		if (keys.Length == 0)
 			throw new ArgumentException ("keys");
-
-		if (!SendDataCommand (null, "MGET {0}\r\n", string.Join (" ", keys)))
-			throw new Exception ("Unable to connect");
-		int c = bstream.ReadByte ();
-		if (c == -1)
-			throw new ResponseException ("No more data");
-
-		var s = ReadLine ();
-		Log ("R: " + s);
-		if (c == '-')
-			throw new ResponseException (s.StartsWith ("ERR") ? s.Substring (4) : s);
-		if (c == '*'){
-			int count;
-			if (int.TryParse (s, out count)){
-				byte [][] result = new byte [count][];
-				
-				for (int i = 0; i < count; i++)
-					result [i] = ReadData ();
-
-				return result;
-			}
-		}
-		throw new ResponseException ("Unknown reply on multi-request: " + c + s);
+        return SendDataCommandExpectMultiBulkReply(null, "MGET {0}\r\n", string.Join(" ", keys));
 	}
+
+
+    public byte[][] SendDataCommandExpectMultiBulkReply(byte[] data, string command, params object[] args)
+    {
+        if (!SendDataCommand(data, command, args))
+            throw new Exception("Unable to connect");
+        int c = bstream.ReadByte();
+        if (c == -1)
+            throw new ResponseException("No more data");
+
+        var s = ReadLine();
+        Log("R: " + s);
+        if (c == '-')
+            throw new ResponseException(s.StartsWith("ERR") ? s.Substring(4) : s);
+        if (c == '*')
+        {
+            int count;
+            if (int.TryParse(s, out count))
+            {
+                byte[][] result = new byte[count][];
+
+                for (int i = 0; i < count; i++)
+                    result[i] = ReadData();
+
+                return result;
+            }
+        }
+        throw new ResponseException("Unknown reply on multi-request: " + c + s);
+    }
+
+
+    public byte[][] ListRange(string key, int start, int end)
+    {
+        return SendDataCommandExpectMultiBulkReply(null, "LRANGE {0} {1} {2}\r\n", key, start, end);
+    }
+
 
     public void RPush(string key, string value)
     {
