@@ -662,6 +662,15 @@ public class Redis : IDisposable {
         return SendDataExpectInt(null, "SCARD {0}\r\n", key);
     }
 
+    public bool IsMemberOfSet(string key, byte[] member)
+    {
+        return SendDataExpectInt(member, "SISMEMBER {0} {1}\r\n", key, member.Length) > 0 ? true : false;
+    }
+    public bool IsMemberOfSet(string key, string member)
+    {
+        return IsMemberOfSet(key, Encoding.UTF8.GetBytes(member));
+    }
+
     #endregion
 
     public void Dispose ()
