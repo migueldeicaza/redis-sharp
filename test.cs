@@ -3,10 +3,21 @@ using System.Text;
 using System.Collections.Generic;
 
 class Test {
-	static void Main ()
+	static void Main (string[] args)
 	{
-		var r = new Redis ();
-		r.Set ("foo", "bar");
+        Redis r;
+        if (args.Length >= 2)
+        {
+            r = new Redis(args[0], Convert.ToInt16(args[1]));
+        } else {
+            r = new Redis();
+        }
+
+        r.Set("foo", "bar");
+        r.FlushAll();
+        if (r.Keys.Length > 0)
+            Console.WriteLine("error: there should be no keys but there were {0}", r.Keys.Length);
+    	r.Set ("foo", "bar");
 		if (r.Keys.Length < 1)
 			Console.WriteLine ("error: there should be at least one key");
 		if (r.GetKeys ("f*").Length < 1)
@@ -62,5 +73,22 @@ class Test {
 		dict ["goodbye"] = Encoding.UTF8.GetBytes ("my dear");
 		
 		//r.Set (dict);
+
+        r.RightPush("alist", "avalue");
+        r.RightPush("alist", "another value");
+        if (r.ListLength("alist") != 2)
+            Console.WriteLine("error: List length should have been 2");
+        var value = Encoding.UTF8.GetString(r.ListIndex("alist", 1));
+        if(!value.Equals("another value"))
+          Console.WriteLine("error: Received {0} and should have been 'another value'", value);
+        value = Encoding.UTF8.GetString(r.LeftPop("alist"));
+        if (!value.Equals("avalue"))
+            Console.WriteLine("error: Received {0} and should have been 'avalue'", value);
+        if (r.ListLength("alist") != 1)
+            Console.WriteLine("error: List should have one element after pop");
+        r.RightPush("alist", "yet another value");
+        byte[][] values = r.ListRange("alist", 0, 1);
+        if (!Encoding.UTF8.GetString(values[0]).Equals("another value"))
+            Console.WriteLine("error: Range did not return the right values");
 	}
 }
