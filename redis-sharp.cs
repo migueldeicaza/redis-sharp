@@ -606,7 +606,18 @@ public class Redis : IDisposable {
 		}
 		throw new ResponseException ("Unknown reply on multi-request: " + c + s);
 	}
-	
+
+    public void RPush(string key, string value)
+    {
+
+        SendExpectSuccess("RPUSH {0} {1}\r\n{2}\r\n", key, value.Length, value);
+    }
+
+    public int ListLength(string key)
+    {
+        return SendExpectInt("LLEN {0}\r\n", key);
+    }
+
 	public void Dispose ()
 	{
 		Dispose (true);
