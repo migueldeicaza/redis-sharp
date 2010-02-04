@@ -671,6 +671,12 @@ public class Redis : IDisposable {
         return IsMemberOfSet(key, Encoding.UTF8.GetBytes(member));
     }
 
+    public byte[][] GetMembersOfSet(string key)
+    {
+        return SendDataCommandExpectMultiBulkReply(null, "SMEMBERS {0}\r\n", key);
+    }
+
+
     #endregion
 
     public void Dispose ()
