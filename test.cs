@@ -76,8 +76,8 @@ class Test {
 
         r.RightPush("alist", "avalue");
         r.RightPush("alist", "another value");
-        if (r.ListLength("alist") != 2)
-            Console.WriteLine("error: List length should have been 2");
+        assert(r.ListLength("alist") == 2, "List length should have been 2");
+
         var value = Encoding.UTF8.GetString(r.ListIndex("alist", 1));
         if(!value.Equals("another value"))
           Console.WriteLine("error: Received {0} and should have been 'another value'", value);
@@ -91,18 +91,9 @@ class Test {
         if (!Encoding.UTF8.GetString(values[0]).Equals("another value"))
             Console.WriteLine("error: Range did not return the right values");
 
-        assert(
-            r.AddToSet("FOO", Encoding.UTF8.GetBytes("BAR")), 
-            "Problem adding to set"
-            );
-        assert(
-            r.AddToSet("FOO", Encoding.UTF8.GetBytes("BAZ")),
-            "Problem adding to set"
-            );
-        assert(
-            r.AddToSet("FOO", "Hoge"),
-            "Problem adding string to set"
-            );
+        assert(r.AddToSet("FOO", Encoding.UTF8.GetBytes("BAR")), "Problem adding to set");
+        assert(r.AddToSet("FOO", Encoding.UTF8.GetBytes("BAZ")),"Problem adding to set");
+        assert(r.AddToSet("FOO", "Hoge"),"Problem adding string to set");
         assert(r.CardinalityOfSet("FOO") == 3, "Cardinality should have been 3 after adding 3 items to set");
         assert(r.IsMemberOfSet("FOO", Encoding.UTF8.GetBytes("BAR")), "BAR should have been in the set");
         assert(r.IsMemberOfSet("FOO", "BAR"), "BAR should have been in the set");
