@@ -106,6 +106,8 @@ class Test {
         assert(r.CardinalityOfSet("FOO") == 3, "Cardinality should have been 3 after adding 3 items to set");
         assert(r.IsMemberOfSet("FOO", Encoding.UTF8.GetBytes("BAR")), "BAR should have been in the set");
         assert(r.IsMemberOfSet("FOO", "BAR"), "BAR should have been in the set");
+        byte[][] members = r.GetMembersOfSet("FOO");
+        assert(members.Length == 3, "Set should have had 3 members");
 	}
 
     static void assert(bool condition, string message)
