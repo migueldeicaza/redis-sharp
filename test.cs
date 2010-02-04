@@ -108,6 +108,10 @@ class Test {
         assert(r.IsMemberOfSet("FOO", "BAR"), "BAR should have been in the set");
         byte[][] members = r.GetMembersOfSet("FOO");
         assert(members.Length == 3, "Set should have had 3 members");
+
+        assert(r.RemoveFromSet("FOO", "Hoge"), "Should have removed Hoge from set");
+        assert(!r.RemoveFromSet("FOO", "Hoge"), "Hoge should not have existed to be removed");
+        assert(2 == r.GetMembersOfSet("FOO").Length, "Set should have 2 members after removing Hoge");
 	}
 
     static void assert(bool condition, string message)
