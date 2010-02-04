@@ -676,6 +676,15 @@ public class Redis : IDisposable {
         return SendDataCommandExpectMultiBulkReply(null, "SMEMBERS {0}\r\n", key);
     }
 
+    public bool RemoveFromSet(string key, byte[] member)
+    {
+        return SendDataExpectInt(member, "SREM {0} {1}\r\n", key, member.Length) > 0 ? true : false;
+    }
+
+    public bool RemoveFromSet(string key, string member)
+    {
+        return RemoveFromSet(key, Encoding.UTF8.GetBytes(member));
+    }
 
     #endregion
 
