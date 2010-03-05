@@ -208,6 +208,7 @@ public class Redis : IDisposable {
 	void Connect ()
 	{
 		socket = new Socket (AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+		socket.NoDelay = true;
 		socket.SendTimeout = SendTimeout;
 		socket.Connect (Host, Port);
 		if (!socket.Connected){
