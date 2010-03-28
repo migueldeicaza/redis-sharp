@@ -407,6 +407,19 @@ public class Redis : IDisposable {
 			}
 			throw new ResponseException ("Invalid length");
 		}
+
+        if (c == '*') //returns the number of matches
+        {
+            int n;
+            if (Int32.TryParse(r.Substring(1), out n))
+            {
+                return n <= 0 ? new byte[0] : ReadData();
+            }
+
+            throw new ResponseException("Unexpected length parameter" + r);
+        }
+
+
 		throw new ResponseException ("Unexpected reply: " + r);
 	}	
 
