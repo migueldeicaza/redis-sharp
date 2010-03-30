@@ -718,10 +718,8 @@ public class Redis : IDisposable {
 		
 		c += "\r\n";
 		
-				
 		return SendDataCommandExpectMultiBulkReply(null, s, keys);
 
-		
 	}
 	
 	public byte[][] UnionOfSets(params string[] keys)
