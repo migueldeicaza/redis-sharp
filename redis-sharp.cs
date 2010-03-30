@@ -675,7 +675,8 @@ public class Redis : IDisposable {
     {
         return AddToSet(key, Encoding.UTF8.GetBytes(member));
     }
-
+	
+	
     public int CardinalityOfSet(string key)
     {
         return SendDataExpectInt(null, "SCARD {0}\r\n", key);
@@ -704,7 +705,36 @@ public class Redis : IDisposable {
     {
         return RemoveFromSet(key, Encoding.UTF8.GetBytes(member));
     }
+	
+	byte[][] DoSetCommand(string cmd, params string[] keys)
+	{
+		if (keys == null)
+			throw new ArgumentNullException();
+		
+		string s = cmd + " ";
+		
+		for (int idx = 0; idx < keys.Length; idx++)
+			s += "{" + idx + "} ";
+		
+		c += "\r\n";
+		
+				
+		return SendDataCommandExpectMultiBulkReply(null, s, keys);
 
+		
+	}
+	
+	public byte[][] UnionOfSets(params string[] keys)
+	{
+		return DoSetCommand("SUNION", keys);
+	}
+	
+	public byte[][] IntersectionOfSets(params string[] keys)
+	{
+		return DoSetCommand("SINTER", keys);		
+	}
+	
+	
     #endregion
 
     public void Dispose ()
