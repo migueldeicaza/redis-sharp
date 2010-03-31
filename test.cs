@@ -103,6 +103,17 @@ class Test {
         assert(r.RemoveFromSet("FOO", "Hoge"), "Should have removed Hoge from set");
         assert(!r.RemoveFromSet("FOO", "Hoge"), "Hoge should not have existed to be removed");
         assert(2 == r.GetMembersOfSet("FOO").Length, "Set should have 2 members after removing Hoge");
+		
+		assert(r.AddToSet("BAR", Encoding.UTF8.GetBytes("BAR")), "Problem adding to set");
+        assert(r.AddToSet("BAR", Encoding.UTF8.GetBytes("ITEM1")),"Problem adding to set");
+        assert(r.AddToSet("BAR", Encoding.UTF8.GetBytes("ITEM2")),"Problem adding string to set");
+		
+		assert(r.GetUnionOfSets("FOO","BAR").Length == 4, "Resulting union should have 4 items");
+		assert(r.GetIntersectionOfSets("FOO", "BAR").Length == 1, "Resulting intersection should have 1 item");
+		assert(r.GetDifferenceOfSets("FOO", "BAR").Length == 1, "Resulting difference should have 1 item");
+		assert(r.GetDifferenceOfSets("BAR", "FOO").Length == 2, "Resulting difference should have 2 items");
+		
+		
 	}
 
     static void assert(bool condition, string message)
