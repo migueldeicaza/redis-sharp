@@ -695,6 +695,11 @@ public class Redis : IDisposable {
     {
         return SendDataCommandExpectMultiBulkReply(null, "SMEMBERS {0}\r\n", key);
     }
+	
+	public byte[] GetRandomMemberOfSet(string key)
+	{
+		return SendExpectData(null,"SRANDMEMBER {0}\r\n", key);
+	}
 
     public bool RemoveFromSet(string key, byte[] member)
     {
@@ -737,7 +742,6 @@ public class Redis : IDisposable {
 	public void StoreUnionOfSets(string destKey, params string[] keys)
 	{
 		StoreSetCommands("SUNIONSTORE", destKey, keys);
-		
 	}
 	
 	public byte[][] GetIntersectionOfSets(params string[] keys)
@@ -748,13 +752,9 @@ public class Redis : IDisposable {
 		return SendDataCommandExpectMultiBulkReply(null, "SINTER " + string.Join(" ", keys) + "\r\n");
 	}
 	
-	
-	
-	
 	public void StoreIntersectionOfSets(string destKey, params string[] keys)
 	{
-		StoreSetCommands("SINTERSTORE", destKey, keys);
-		                 
+		StoreSetCommands("SINTERSTORE", destKey, keys);		                 
 	}
 	
 	public byte[][] GetDifferenceOfSets(params string[] keys)
