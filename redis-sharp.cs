@@ -706,31 +706,71 @@ public class Redis : IDisposable {
         return RemoveFromSet(key, Encoding.UTF8.GetBytes(member));
     }
 	
-	byte[][] DoSetCommand(string cmd, params string[] keys)
+		
+	public byte[][] GetUnionOfSets(params string[] keys)
 	{
 		if (keys == null)
 			throw new ArgumentNullException();
 		
-		string s = cmd + " ";
+		return SendDataCommandExpectMultiBulkReply(null, "SUNION " + string.Join(" ", keys) + "\r\n");
 		
-		for (int idx = 0; idx < keys.Length; idx++)
-			s += "{" + idx + "} ";
-		
-		c += "\r\n";
-		
-		return SendDataCommandExpectMultiBulkReply(null, s, keys);
-
 	}
 	
-	public byte[][] UnionOfSets(params string[] keys)
+	void StoreSetCommands(string cmd, string destKey, params string[] keys)
 	{
-		return DoSetCommand("SUNION", keys);
+		if (String.IsNullOrEmpty(cmd))
+			throw new ArgumentNullException("cmd");
+		
+		if (String.IsNullOrEmpty(destKey))
+			throw new ArgumentNullException("destKey");
+		
+		if (keys == null)
+			throw new ArgumentNullException("keys");
+		
+		SendExpectSuccess("{0} {1} {2}\r\n",
+		                  cmd,
+		                  destKey,
+		                  String.Join(" ", keys)
+		                 );
 	}
 	
-	public byte[][] IntersectionOfSets(params string[] keys)
+	public void StoreUnionOfSets(string destKey, params string[] keys)
 	{
-		return DoSetCommand("SINTER", keys);		
+		StoreSetCommands("SUNIONSTORE", destKey, keys);
+		
 	}
+	
+	public byte[][] GetIntersectionOfSets(params string[] keys)
+	{
+		if (keys == null)
+			throw new ArgumentNullException();
+		
+		return SendDataCommandExpectMultiBulkReply(null, "SINTER " + string.Join(" ", keys) + "\r\n");
+	}
+	
+	
+	
+	
+	public void StoreIntersectionOfSets(string destKey, params string[] keys)
+	{
+		StoreSetCommands("SINTERSTORE", destKey, keys);
+		                 
+	}
+	
+	public byte[][] GetDifferenceOfSets(params string[] keys)
+	{
+		if (keys == null)
+			throw new ArgumentNullException();
+		
+		return SendDataCommandExpectMultiBulkReply(null, "SDIFF " + string.Join(" ", keys) + "\r\n");
+		
+	}
+	
+	public void StoreDifferenceOfSets(string destKey, params string[] keys)
+	{
+		StoreSetCommands("SDIFFSTORE", destKey, keys);
+	}
+	                                 
 	
 	
     #endregion
