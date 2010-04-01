@@ -45,6 +45,10 @@ public class Redis : IDisposable {
 		SendTimeout = -1;
 	}
 	
+	public Redis (string host) : this (host, 6379)
+	{
+	}
+	
 	public Redis () : this ("localhost", 6379)
 	{
 	}
@@ -549,6 +553,11 @@ public class Redis : IDisposable {
     {
         SendGetString("FLUSHALL\r\n");
     }
+	
+	public void FlushDb()
+	{
+		SendGetString("FLUSHDB\r\n");
+	}
 
 	const long UnixEpoch = 621355968000000000L;
 
@@ -700,6 +709,11 @@ public class Redis : IDisposable {
 	{
 		return SendExpectData(null,"SRANDMEMBER {0}\r\n", key);
 	}
+	
+	public byte[] PopRandomMemberOfSet(string key)
+	{
+		return SendExpectData(null, "SPOP {0}\r\n", key);
+	}
 
     public bool RemoveFromSet(string key, byte[] member)
     {
@@ -769,6 +783,11 @@ public class Redis : IDisposable {
 	public void StoreDifferenceOfSets(string destKey, params string[] keys)
 	{
 		StoreSetCommands("SDIFFSTORE", destKey, keys);
+	}
+	
+	public bool MoveMemberToSet(string srcKey, string destKey, byte[] member)
+	{
+		return SendDataExpectInt(member, "SMOVE {0} {1} {2}\r\n", srcKey, destKey, member.Length) > 0 ? true : false;		
 	}
 	                                 
 	
