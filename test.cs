@@ -109,9 +109,19 @@ class Test {
         assert(r.AddToSet("BAR", Encoding.UTF8.GetBytes("ITEM2")),"Problem adding string to set");
 		
 		assert(r.GetUnionOfSets("FOO","BAR").Length == 4, "Resulting union should have 4 items");
-		assert(r.GetIntersectionOfSets("FOO", "BAR").Length == 1, "Resulting intersection should have 1 item");
-		assert(r.GetDifferenceOfSets("FOO", "BAR").Length == 1, "Resulting difference should have 1 item");
-		assert(r.GetDifferenceOfSets("BAR", "FOO").Length == 2, "Resulting difference should have 2 items");
+		assert(1 == r.GetIntersectionOfSets("FOO", "BAR").Length, "Resulting intersection should have 1 item");
+		assert(1 == r.GetDifferenceOfSets("FOO", "BAR").Length, "Resulting difference should have 1 item");
+		assert(2 == r.GetDifferenceOfSets("BAR", "FOO").Length, "Resulting difference should have 2 items");
+		
+		byte[] itm = r.GetRandomMemberOfSet("FOO");
+		assert(null != itm, "GetRandomMemberOfSet should have returned an item");
+		assert(r.MoveMemberToSet("FOO","BAR", itm), "Data within itm should have been moved to set BAR");
+		
+		
+		r.FlushDb();
+		
+		 if (r.Keys.Length > 0)
+            Console.WriteLine("error: there should be no keys but there were {0}", r.Keys.Length);
 		
 		
 	}
