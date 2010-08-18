@@ -404,7 +404,16 @@ public class Redis : IDisposable {
 			
 			if (Int32.TryParse (r.Substring (1), out n)){
 				byte [] retbuf = new byte [n];
-				bstream.Read (retbuf, 0, n);
+
+                int bytesRead = 0;
+                do
+                {
+                    int read = bstream.Read(retbuf, bytesRead, n - bytesRead);
+                    if (read < 1)
+                        throw new ResponseException("Invalid termination mid stream");
+                    bytesRead += read; 
+                }
+                while (bytesRead < n);
 				if (bstream.ReadByte () != '\r' || bstream.ReadByte () != '\n')
 					throw new ResponseException ("Invalid termination");
 				return retbuf;
