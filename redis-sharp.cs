@@ -169,11 +169,11 @@ public class Redis : IDisposable {
 		return Encoding.UTF8.GetString (Get (key));
 	}
 
-  public byte[][] Sort(SortOptions options)
-  {
-    return SendDataCommandExpectMultiBulkReply(null, options.ToCommand() + "\r\n");
-  }
-
+	public byte[][] Sort (SortOptions options)
+	{
+		return SendDataCommandExpectMultiBulkReply(null, options.ToCommand() + "\r\n");
+	}
+	
 	public byte [] GetSet (string key, byte [] value)
 	{
 		if (key == null)
@@ -397,6 +397,7 @@ public class Redis : IDisposable {
 		char c = r [0];
 		if (c == '-')
 			throw new ResponseException (r.StartsWith ("-ERR") ? r.Substring (5) : r.Substring (1));
+
 		if (c == '$'){
 			if (r == "$-1")
 				return null;
@@ -405,15 +406,14 @@ public class Redis : IDisposable {
 			if (Int32.TryParse (r.Substring (1), out n)){
 				byte [] retbuf = new byte [n];
 
-                int bytesRead = 0;
-                do
-                {
-                    int read = bstream.Read(retbuf, bytesRead, n - bytesRead);
-                    if (read < 1)
-                        throw new ResponseException("Invalid termination mid stream");
-                    bytesRead += read; 
-                }
-                while (bytesRead < n);
+				int bytesRead = 0;
+				do {
+					int read = bstream.Read (retbuf, bytesRead, n - bytesRead);
+					if (read < 1)
+						throw new ResponseException("Invalid termination mid stream");
+					bytesRead += read; 
+				}
+				while (bytesRead < n);
 				if (bstream.ReadByte () != '\r' || bstream.ReadByte () != '\n')
 					throw new ResponseException ("Invalid termination");
 				return retbuf;
@@ -421,18 +421,15 @@ public class Redis : IDisposable {
 			throw new ResponseException ("Invalid length");
 		}
 
-        if (c == '*') //returns the number of matches
-        {
-            int n;
-            if (Int32.TryParse(r.Substring(1), out n))
-            {
-                return n <= 0 ? new byte[0] : ReadData();
-            }
-
-            throw new ResponseException("Unexpected length parameter" + r);
-        }
-
-
+		//returns the number of matches
+		if (c == '*') {
+			int n;
+			if (Int32.TryParse(r.Substring(1), out n)) 
+				return n <= 0 ? new byte [0] : ReadData();
+			
+			throw new ResponseException ("Unexpected length parameter" + r);
+		}
+		
 		throw new ResponseException ("Unexpected reply: " + r);
 	}	
 
@@ -558,26 +555,26 @@ public class Redis : IDisposable {
 		SendGetString ("SHUTDOWN\r\n");
 	}
 
-    public void FlushAll()
-    {
-        SendGetString("FLUSHALL\r\n");
-    }
-	
-	public void FlushDb()
+	public void FlushAll ()
 	{
-		SendGetString("FLUSHDB\r\n");
+		SendGetString ("FLUSHALL\r\n");
+	}
+	
+	public void FlushDb ()
+	{
+		SendGetString ("FLUSHDB\r\n");
 	}
 
 	const long UnixEpoch = 621355968000000000L;
-
+	
 	public DateTime LastSave {
 		get {
 			int t = SendExpectInt ("LASTSAVE\r\n");
-
+			
 			return new DateTime (UnixEpoch) + TimeSpan.FromSeconds (t);
 		}
 	}
-
+	
 	public Dictionary<string,string> GetInfo ()
 	{
 		byte [] r = SendExpectData (null, "INFO\r\n");
@@ -594,12 +591,11 @@ public class Redis : IDisposable {
 
 	public string [] Keys {
 		get {
-            string commandResponse = Encoding.UTF8.GetString (SendExpectData (null, "KEYS *\r\n"));
-            if(commandResponse.Length < 1) {
-                return new string[0];
-            } else {
-			return commandResponse.Split (' ');
-            }
+			string commandResponse = Encoding.UTF8.GetString (SendExpectData (null, "KEYS *\r\n"));
+			if (commandResponse.Length < 1) 
+				return new string [0];
+			else
+				return commandResponse.Split (' ');
 		}
 	}
 
@@ -609,7 +605,7 @@ public class Redis : IDisposable {
 			throw new ArgumentNullException ("key");
 		var keys = SendExpectData (null, "KEYS {0}\r\n", pattern);
 		if (keys.Length == 0)
-				return new string[0];
+			return new string [0];
 		return Encoding.UTF8.GetString (keys).Split (' ');
 	}
 
@@ -619,191 +615,178 @@ public class Redis : IDisposable {
 			throw new ArgumentNullException ("key1");
 		if (keys.Length == 0)
 			throw new ArgumentException ("keys");
-        return SendDataCommandExpectMultiBulkReply(null, "MGET {0}\r\n", string.Join(" ", keys));
-	}
-
-
-    public byte[][] SendDataCommandExpectMultiBulkReply(byte[] data, string command, params object[] args)
-    {
-        if (!SendDataCommand(data, command, args))
-            throw new Exception("Unable to connect");
-        int c = bstream.ReadByte();
-        if (c == -1)
-            throw new ResponseException("No more data");
-
-        var s = ReadLine();
-        Log("R: " + s);
-        if (c == '-')
-            throw new ResponseException(s.StartsWith("ERR") ? s.Substring(4) : s);
-        if (c == '*')
-        {
-            int count;
-            if (int.TryParse(s, out count))
-            {
-                byte[][] result = new byte[count][];
-
-                for (int i = 0; i < count; i++)
-                    result[i] = ReadData();
-
-                return result;
-            }
-        }
-        throw new ResponseException("Unknown reply on multi-request: " + c + s);
-    }
-
-    #region List commands
-    public byte[][] ListRange(string key, int start, int end)
-    {
-        return SendDataCommandExpectMultiBulkReply(null, "LRANGE {0} {1} {2}\r\n", key, start, end);
-    }
-
-
-    public void RightPush(string key, string value)
-    {
-
-        SendExpectSuccess("RPUSH {0} {1}\r\n{2}\r\n", key, value.Length, value);
-    }
-
-    public int ListLength(string key)
-    {
-        return SendExpectInt("LLEN {0}\r\n", key);
-    }
-
-    public byte[] ListIndex(string key, int index)
-    {
-        SendCommand("LINDEX {0} {1}\r\n", key, index);
-        return ReadData();
-    }
-
-    public byte[] LeftPop(string key)
-    {
-        SendCommand("LPOP {0}\r\n", key);
-        return ReadData();
-    }
-    #endregion
-
-
-    #region Set commands
-    public bool AddToSet(string key, byte[] member)
-    {
-        return SendDataExpectInt(member, "SADD {0} {1}\r\n", key, member.Length) > 0 ? true : false;
-    }
-
-    public bool AddToSet(string key, string member)
-    {
-        return AddToSet(key, Encoding.UTF8.GetBytes(member));
-    }
-	
-	
-    public int CardinalityOfSet(string key)
-    {
-        return SendDataExpectInt(null, "SCARD {0}\r\n", key);
-    }
-
-    public bool IsMemberOfSet(string key, byte[] member)
-    {
-        return SendDataExpectInt(member, "SISMEMBER {0} {1}\r\n", key, member.Length) > 0 ? true : false;
-    }
-    public bool IsMemberOfSet(string key, string member)
-    {
-        return IsMemberOfSet(key, Encoding.UTF8.GetBytes(member));
-    }
-
-    public byte[][] GetMembersOfSet(string key)
-    {
-        return SendDataCommandExpectMultiBulkReply(null, "SMEMBERS {0}\r\n", key);
-    }
-	
-	public byte[] GetRandomMemberOfSet(string key)
-	{
-		return SendExpectData(null,"SRANDMEMBER {0}\r\n", key);
-	}
-	
-	public byte[] PopRandomMemberOfSet(string key)
-	{
-		return SendExpectData(null, "SPOP {0}\r\n", key);
-	}
-
-    public bool RemoveFromSet(string key, byte[] member)
-    {
-        return SendDataExpectInt(member, "SREM {0} {1}\r\n", key, member.Length) > 0 ? true : false;
-    }
-
-    public bool RemoveFromSet(string key, string member)
-    {
-        return RemoveFromSet(key, Encoding.UTF8.GetBytes(member));
-    }
-	
 		
-	public byte[][] GetUnionOfSets(params string[] keys)
+		return SendDataCommandExpectMultiBulkReply (null, "MGET {0}\r\n", string.Join (" ", keys));
+	}
+
+
+	public byte[][] SendDataCommandExpectMultiBulkReply(byte[] data, string command, params object[] args)
+	{
+		if (!SendDataCommand(data, command, args))
+			throw new Exception("Unable to connect");
+		int c = bstream.ReadByte();
+		if (c == -1)
+			throw new ResponseException("No more data");
+		
+		var s = ReadLine();
+		Log("R: " + s);
+		if (c == '-')
+			throw new ResponseException(s.StartsWith("ERR") ? s.Substring(4) : s);
+		if (c == '*') {
+			int count;
+			if (int.TryParse (s, out count)) {
+				var result =  byte [count][];
+				
+				for (int i = 0; i < count; i++)
+					result[i] = ReadData();
+				
+				return result;
+			}
+		}
+		throw new ResponseException("Unknown reply on multi-request: " + c + s);
+	}
+	
+	#region List commands
+	public byte[][] ListRange(string key, int start, int end)
+	{
+		return SendDataCommandExpectMultiBulkReply (null, "LRANGE {0} {1} {2}\r\n", key, start, end);
+	}
+
+	public void RightPush(string key, string value)
+	{
+		SendExpectSuccess ("RPUSH {0} {1}\r\n{2}\r\n", key, value.Length, value);
+	}
+
+	public int ListLength (string key)
+	{
+		return SendExpectInt ("LLEN {0}\r\n", key);
+	}
+
+	public byte[] ListIndex (string key, int index)
+	{
+		SendCommand ("LINDEX {0} {1}\r\n", key, index);
+		return ReadData ();
+	}
+
+	public byte[] LeftPop(string key)
+	{
+		SendCommand ("LPOP {0}\r\n", key);
+		return ReadData ();
+	}
+	#endregion
+
+	#region Set commands
+	public bool AddToSet (string key, byte[] member)
+	{
+		return SendDataExpectInt(member, "SADD {0} {1}\r\n", key, member.Length) > 0;
+	}
+
+	public bool AddToSet (string key, string member)
+	{
+		return AddToSet (key, Encoding.UTF8.GetBytes(member));
+	}
+	
+	public int CardinalityOfSet (string key)
+	{
+		return SendDataExpectInt (null, "SCARD {0}\r\n", key);
+	}
+
+	public bool IsMemberOfSet (string key, byte[] member)
+	{
+		return SendDataExpectInt (member, "SISMEMBER {0} {1}\r\n", key, member.Length) > 0;
+	}
+
+	public bool IsMemberOfSet(string key, string member)
+	{
+		return IsMemberOfSet(key, Encoding.UTF8.GetBytes(member));
+	}
+	
+	public byte[][] GetMembersOfSet (string key)
+	{
+		return SendDataCommandExpectMultiBulkReply (null, "SMEMBERS {0}\r\n", key);
+	}
+	
+	public byte[] GetRandomMemberOfSet (string key)
+	{
+		return SendExpectData (null, "SRANDMEMBER {0}\r\n", key);
+	}
+	
+	public byte[] PopRandomMemberOfSet (string key)
+	{
+		return SendExpectData (null, "SPOP {0}\r\n", key);
+	}
+
+	public bool RemoveFromSet (string key, byte[] member)
+	{
+		return SendDataExpectInt (member, "SREM {0} {1}\r\n", key, member.Length) > 0;
+	}
+
+	public bool RemoveFromSet (string key, string member)
+	{
+		return RemoveFromSet (key, Encoding.UTF8.GetBytes(member));
+	}
+		
+	public byte[][] GetUnionOfSets (params string[] keys)
 	{
 		if (keys == null)
 			throw new ArgumentNullException();
 		
-		return SendDataCommandExpectMultiBulkReply(null, "SUNION " + string.Join(" ", keys) + "\r\n");
+		return SendDataCommandExpectMultiBulkReply (null, "SUNION " + string.Join (" ", keys) + "\r\n");
 		
 	}
 	
-	void StoreSetCommands(string cmd, string destKey, params string[] keys)
+	void StoreSetCommands (string cmd, string destKey, params string[] keys)
 	{
 		if (String.IsNullOrEmpty(cmd))
-			throw new ArgumentNullException("cmd");
+			throw new ArgumentNullException ("cmd");
 		
 		if (String.IsNullOrEmpty(destKey))
-			throw new ArgumentNullException("destKey");
+			throw new ArgumentNullException ("destKey");
 		
 		if (keys == null)
-			throw new ArgumentNullException("keys");
+			throw new ArgumentNullException ("keys");
 		
-		SendExpectSuccess("{0} {1} {2}\r\n",
-		                  cmd,
-		                  destKey,
-		                  String.Join(" ", keys)
-		                 );
+		SendExpectSuccess ("{0} {1} {2}\r\n", cmd, destKey, String.Join(" ", keys));
 	}
 	
-	public void StoreUnionOfSets(string destKey, params string[] keys)
+	public void StoreUnionOfSets (string destKey, params string[] keys)
 	{
-		StoreSetCommands("SUNIONSTORE", destKey, keys);
+		StoreSetCommands ("SUNIONSTORE", destKey, keys);
 	}
 	
-	public byte[][] GetIntersectionOfSets(params string[] keys)
+	public byte[][] GetIntersectionOfSets (params string[] keys)
 	{
 		if (keys == null)
 			throw new ArgumentNullException();
 		
-		return SendDataCommandExpectMultiBulkReply(null, "SINTER " + string.Join(" ", keys) + "\r\n");
+		return SendDataCommandExpectMultiBulkReply (null, "SINTER " + string.Join(" ", keys) + "\r\n");
 	}
 	
-	public void StoreIntersectionOfSets(string destKey, params string[] keys)
+	public void StoreIntersectionOfSets (string destKey, params string[] keys)
 	{
-		StoreSetCommands("SINTERSTORE", destKey, keys);		                 
+		StoreSetCommands ("SINTERSTORE", destKey, keys);		                 
 	}
 	
-	public byte[][] GetDifferenceOfSets(params string[] keys)
+	public byte[][] GetDifferenceOfSets (params string[] keys)
 	{
 		if (keys == null)
 			throw new ArgumentNullException();
 		
-		return SendDataCommandExpectMultiBulkReply(null, "SDIFF " + string.Join(" ", keys) + "\r\n");
-		
+		return SendDataCommandExpectMultiBulkReply (null, "SDIFF " + string.Join (" ", keys) + "\r\n");
 	}
 	
-	public void StoreDifferenceOfSets(string destKey, params string[] keys)
+	public void StoreDifferenceOfSets (string destKey, params string[] keys)
 	{
 		StoreSetCommands("SDIFFSTORE", destKey, keys);
 	}
 	
-	public bool MoveMemberToSet(string srcKey, string destKey, byte[] member)
+	public bool MoveMemberToSet (string srcKey, string destKey, byte[] member)
 	{
-		return SendDataExpectInt(member, "SMOVE {0} {1} {2}\r\n", srcKey, destKey, member.Length) > 0 ? true : false;		
+		return SendDataExpectInt(member, "SMOVE {0} {1} {2}\r\n", srcKey, destKey, member.Length) > 0;
 	}
-	                                 
-	
-	
-    #endregion
+	#endregion
 
-    public void Dispose ()
+	public void Dispose ()
 	{
 		Dispose (true);
 		GC.SuppressFinalize (this);
@@ -824,31 +807,30 @@ public class Redis : IDisposable {
 	}
 }
 
-  public class SortOptions
-  {
-    public string Key { get; set; }
-    public bool Descending { get; set; }
-    public bool Lexographically { get; set; }
-    public Int32 LowerLimit { get; set; }
-    public Int32 UpperLimit { get; set; }
-    public string By { get; set; }
-    public string StoreInKey { get; set; }
-    public string Get { get; set; }
-
-    public string ToCommand()
-    {
-      var command = "SORT " + this.Key;
-      if (LowerLimit != 0 || UpperLimit != 0)
-        command += " LIMIT " + LowerLimit + " " + UpperLimit;
-      if (Lexographically)
-        command += " ALPHA";
-      if (!string.IsNullOrEmpty(By))
-        command += " BY " + By;
-      if (!string.IsNullOrEmpty(Get))
-        command += " GET " + Get;
-      if (!string.IsNullOrEmpty(StoreInKey))
-        command += " STORE " + StoreInKey;
-      return command;
-    }
-  }
+public class SortOptions {
+	public string Key { get; set; }
+	public bool Descending { get; set; }
+	public bool Lexographically { get; set; }
+	public Int32 LowerLimit { get; set; }
+	public Int32 UpperLimit { get; set; }
+	public string By { get; set; }
+	public string StoreInKey { get; set; }
+	public string Get { get; set; }
+	
+	public string ToCommand()
+	{
+		var command = "SORT " + this.Key;
+		if (LowerLimit != 0 || UpperLimit != 0)
+			command += " LIMIT " + LowerLimit + " " + UpperLimit;
+		if (Lexographically)
+			command += " ALPHA";
+		if (!string.IsNullOrEmpty (By))
+			command += " BY " + By;
+		if (!string.IsNullOrEmpty (Get))
+			command += " GET " + Get;
+		if (!string.IsNullOrEmpty (StoreInKey))
+			command += " STORE " + StoreInKey;
+		return command;
+	}
+}
 
