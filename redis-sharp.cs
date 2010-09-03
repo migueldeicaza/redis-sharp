@@ -635,7 +635,7 @@ public class Redis : IDisposable {
 		if (c == '*') {
 			int count;
 			if (int.TryParse (s, out count)) {
-				var result =  byte [count][];
+				var result = new byte [count][];
 				
 				for (int i = 0; i < count; i++)
 					result[i] = ReadData();
