@@ -6,6 +6,8 @@ class Test {
 	static void Main (string[] args)
 	{
         Redis r;
+		
+		
         if (args.Length >= 2)
         {
             r = new Redis(args[0], Convert.ToInt16(args[1]));

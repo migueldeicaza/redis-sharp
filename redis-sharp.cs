@@ -22,6 +22,9 @@ public class Redis : IDisposable {
 	Socket socket;
 	BufferedStream bstream;
 
+	static Dictionary<string,Action<byte[]>> CallBacks;
+	
+	
 	public enum KeyType {
 		None, String, List, Set
 	}
@@ -785,6 +788,71 @@ public class Redis : IDisposable {
 		return SendDataExpectInt(member, "SMOVE {0} {1} {2}\r\n", srcKey, destKey, member.Length) > 0;
 	}
 	#endregion
+	
+	#region Publish / Subscribe methods
+	
+	void RequireMinimumVersion(string version)
+	{
+		var info = GetInfo();
+		string ver = info["redis_version"];
+		
+		if (ver.CompareTo(version) < 0)
+			throw new Exception(String.Format("Expecting Redis version {0}, but got {1}", version, ver));
+					
+						
+	}
+	
+	
+	public int Publish (string key, byte[] data)
+	{
+		RequireMinimumVersion("2.0.0");
+		
+		if (key == null)
+			throw new ArgumentNullException();
+		
+		/* JS (09/26/2010): The result of PUBLISH is the number of clients that receive the data */
+		return SendDataExpectInt(data, "PUBLISH {0} {1}\r\n", key, data.Length);
+	}
+	
+	public int Publish(string key, string data)
+	{
+		if (key == null || data == null)
+		    throw new ArgumentNullException();
+		
+		return Publish(key, Encoding.UTF8.GetBytes(data));
+	}
+	
+	void SubscritionWorker() 
+	{
+		Socket s = new Socket (AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+		s.Connect(this.Host,this.Port);
+	
+		
+		while (true) 
+		{
+						
+		}
+		
+	}
+	
+		
+	public void SubscribeToChannel(string channel, Action<byte[]> callBack)
+	{
+		RequireMinimumVersion("2.0.0");
+		
+		/* JS (09/26/2010): If the dictionary of callbacks is null, create that, and start the thread to listen for them */
+		if (CallBacks == null) 
+		{
+			CallBacks = new Dictionary<string, Action<byte[]>>();
+			
+		}
+		
+				
+	}
+	
+	
+		
+	#endregion
 
 	public void Dispose ()
 	{
@@ -834,3 +902,4 @@ public class SortOptions {
 	}
 }
 
+	
