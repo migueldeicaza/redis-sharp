@@ -853,7 +853,7 @@ public class Redis : IDisposable {
 				/* Determine which action we're calling */
 				lock(callBacks) {
 					callBacks[channel](message);	
-					Log("");
+					Log("Callback: {0}", channel);
 				}
 			}
 						
