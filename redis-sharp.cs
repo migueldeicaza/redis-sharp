@@ -25,7 +25,7 @@ public class Redis : IDisposable {
 	BufferedStream bstream;
 	
 	/* JS (09/27/2010): subscription handling members */
-	bool doWork;
+	bool continueWorking;
 	Dictionary<string,Action<byte[]>> callBacks;
 	System.Threading.Thread workerThread;
 	
@@ -802,8 +802,11 @@ public class Redis : IDisposable {
 	}
 	#endregion
 	
-	#region Publish / Subscribe methods
 	
+	#region Publish / Subscribe methods
+	/// <summary>
+	/// Require a minimum version. 
+	/// </summary>
 	void RequireMinimumVersion(string version)
 	{
 		var info = GetInfo();
@@ -811,40 +814,49 @@ public class Redis : IDisposable {
 		
 		if (ver.CompareTo(version) < 0)
 			throw new Exception(String.Format("Expecting Redis version {0}, but got {1}", version, ver));
-					
-						
 	}
 	
-	
-	public int Publish (string key, byte[] data)
+	/// <summary>
+	/// Publis data to a given channel
+	/// </summary>
+	public int Publish (string channel, byte[] data)
 	{
 		RequireMinimumVersion("2.0.0");
 		
-		if (key == null)
+		if (channel == null)
 			throw new ArgumentNullException();
 		
 		/* JS (09/26/2010): The result of PUBLISH is the number of clients that receive the data */
-		return SendDataExpectInt(data, "PUBLISH {0} {1}\r\n", key, data.Length);
+		return SendDataExpectInt(data, "PUBLISH {0} {1}\r\n", channel, data.Length);
 	}
 	
-	public int Publish(string key, string data)
+	public int Publish(string channel, string data)
 	{
-		if (key == null || data == null)
+		if (channel == null || data == null)
 		    throw new ArgumentNullException();
 		
-		return Publish(key, Encoding.UTF8.GetBytes(data));
+		return Publish(channel, Encoding.UTF8.GetBytes(data));
 	}
 	
+	/// <summary>
+	/// Worker ThreadStart method to handle incoming messages from Redis.
+	/// </summary>
 	void SubscritionWorker() 
 	{
 		byte[] message;
 		string channel = String.Empty;
 			
-		
-		while (doWork) 
+	
+		while (continueWorking) 
 		{
 			message = ReadData();
-			
+	
+			/* JS (09/27/2010):
+			 * Determine the type of message coming in. 
+			 * message correlates to something subscribed via the SUBSCRIBE command
+			 * pmessage correlates to something subscribed via the PSUBSCRIBE command.
+			 * 	(This will also give us the actual channel along with the pattern)
+			 */
 			switch (Encoding.ASCII.GetString(message)) {
 				case "message":
 					message = ReadData();	/* Channel */
@@ -854,7 +866,7 @@ public class Redis : IDisposable {
 				case "pmessage":
 					message = ReadData(); /* Channel with mask */
 					channel = Encoding.ASCII.GetString(message);
-					ReadData(); /* This is the REAL channel, we don't care about that */
+					ReadData(); /* This is the REAL channel, we don't care about that .. yet ;-) */
 					message = ReadData(); /* Data */
 					break;
 				default:
@@ -875,34 +887,33 @@ public class Redis : IDisposable {
 		
 	}
 	
+	/// <summary>
+	/// Add an Action to the dictionary of callbacks
+	/// </summary>
 	void AddToCallBack(string channel, Action<byte[]> callBack) 
 	{
-		/* JS (09/26/2010): If the dictionary of callbacks is null, create that, and start the thread to listen for them */
-		if (callBacks == null || callBacks.Count == 0) 
-		{
+		/* JS (09/26/2010): 
+		 * If the dictionary of callbacks is null, create that, 
+		 * and start the thread to listen for them 
+		 */
+		if (callBacks == null || callBacks.Count == 0) {
 			RequireMinimumVersion("2.0.0");
 			callBacks = new Dictionary<string, Action<byte[]>>();
-			doWork = true;
+			continueWorking = true;
 			workerThread = new System.Threading.Thread(SubscritionWorker);
 			workerThread.Start();
-			
 		}
-		lock(callBacks) 
-		{
+		
+		lock(callBacks) {
 			if (callBacks.ContainsKey(channel)) return;
 			callBacks.Add(channel, callBack);
 		}
-		
-		
-		
 	}
 
 		
 	public void Subscribe(string channel, Action<byte[]> callBack)
-	{
-				
-		AddToCallBack(channel, callBack);		
-				
+	{			
+		AddToCallBack(channel, callBack);					
 		SendCommand("SUBSCRIBE {0}\r\n", channel);
 					
 	}
@@ -912,15 +923,25 @@ public class Redis : IDisposable {
 		AddToCallBack(channel,callBack);
 		SendCommand("PSUBSCRIBE {0}\r\n", channel);
 	}
-
-	public void PUnsubscribe(string channel) 
+	
+	/// <summary>
+	/// Unsubscribe from all channels
+	/// </summary>
+	public void Unsubscribe()
 	{
-		Unsubscribe(channel);
+		continueWorking = false;
+		SendCommand("UNSUBSCRIBE\r\n");
+		workerThread.Join();
+		
+		callBacks.Clear();
+		callBacks = null;
+		
 	}
+
+	public void PUnsubscribe(string channel)  { Unsubscribe(channel); }
 	
 	public void Unsubscribe(string channel) 
 	{
-				
 		lock(callBacks) {
 			if (callBacks == null) return;
 			
@@ -928,7 +949,7 @@ public class Redis : IDisposable {
 			
 			callBacks.Remove(channel);
 			
-			doWork = (callBacks.Count > 0);
+			continueWorking = (callBacks.Count > 0);
 			
 			if (channel.Contains("*"))
 				SendCommand("punsubscribe {0}\r\n", channel);
@@ -938,12 +959,10 @@ public class Redis : IDisposable {
 		}
 		
 		/* Wait for the worker thread to finish up */
-		if (!doWork) workerThread.Join();
+		if (!continueWorking) workerThread.Join();
 				
 	}
 	
-	
-		
 	#endregion
 
 	public void Dispose ()
@@ -960,6 +979,12 @@ public class Redis : IDisposable {
 	protected virtual void Dispose (bool disposing)
 	{
 		if (disposing){
+			
+			/* JS (09/27/2010): Clean up the worker thread, if needbe */
+			if (continueWorking) {
+				Unsubscribe();
+			}
+			
 			SendCommand ("QUIT\r\n");
 			socket.Close ();
 			socket = null;
