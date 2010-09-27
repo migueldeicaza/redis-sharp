@@ -844,52 +844,81 @@ public class Redis : IDisposable {
 		while (doWork) 
 		{
 			message = ReadData();
-						 
-			if (Encoding.ASCII.GetString(message) == "message") {
-				message = ReadData();	/* Channel */
-				channel = Encoding.ASCII.GetString(message);
-				message = ReadData(); /* Data */
+			
+			switch (Encoding.ASCII.GetString(message)) {
+				case "message":
+					message = ReadData();	/* Channel */
+					channel = Encoding.ASCII.GetString(message);
+					message = ReadData(); /* Data */
+					break;
+				case "pmessage":
+					message = ReadData(); /* Channel with mask */
+					channel = Encoding.ASCII.GetString(message);
+					ReadData(); /* This is the REAL channel, we don't care about that */
+					message = ReadData(); /* Data */
+					break;
+				default:
+					channel = string.Empty;
+					break;
 				
-				/* Determine which action we're calling */
-				lock(callBacks) {
-					callBacks[channel](message);	
-					Log("Callback: {0}", channel);
-				}
 			}
-						
+			
+			if (channel == string.Empty) continue;
+			
+			/* Determine which action we're calling */
+			lock(callBacks) {
+				callBacks[channel](message);	
+				Log("Callback: {0}", channel);
+			}
+							
 		}
 		
 	}
-
-		
-	public void SubscribeToChannel(string channel, Action<byte[]> callBack)
+	
+	void AddToCallBack(string channel, Action<byte[]> callBack) 
 	{
-		RequireMinimumVersion("2.0.0");
-		
-		
 		/* JS (09/26/2010): If the dictionary of callbacks is null, create that, and start the thread to listen for them */
 		if (callBacks == null || callBacks.Count == 0) 
 		{
+			RequireMinimumVersion("2.0.0");
 			callBacks = new Dictionary<string, Action<byte[]>>();
 			doWork = true;
 			workerThread = new System.Threading.Thread(SubscritionWorker);
 			workerThread.Start();
+			
 		}
-		
 		lock(callBacks) 
 		{
 			if (callBacks.ContainsKey(channel)) return;
-			
 			callBacks.Add(channel, callBack);
-			
-			SendCommand("SUBSCRIBE {0}\r\n", channel);
-					           
-			
 		}
+		
+		
+		
+	}
+
+		
+	public void Subscribe(string channel, Action<byte[]> callBack)
+	{
 				
+		AddToCallBack(channel, callBack);		
+				
+		SendCommand("SUBSCRIBE {0}\r\n", channel);
+					
 	}
 	
-	public void UnSubscribeFromChannel(string channel) 
+	public void PSubscribe(string channel, Action<byte[]> callBack)
+	{
+		AddToCallBack(channel,callBack);
+		SendCommand("PSUBSCRIBE {0}\r\n", channel);
+	}
+
+	public void PUnsubscribe(string channel) 
+	{
+		Unsubscribe(channel);
+	}
+	
+	public void Unsubscribe(string channel) 
 	{
 				
 		lock(callBacks) {
@@ -901,9 +930,11 @@ public class Redis : IDisposable {
 			
 			doWork = (callBacks.Count > 0);
 			
-			SendCommand("unsubscribe {0}\r\n", channel);
-			
-						
+			if (channel.Contains("*"))
+				SendCommand("punsubscribe {0}\r\n", channel);
+			else
+				SendCommand("unsubscribe {0}\r\n", channel);
+
 		}
 		
 		/* Wait for the worker thread to finish up */
