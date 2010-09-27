@@ -18,11 +18,16 @@ using System.Text;
 using System.Diagnostics;
 using System.Linq;
 
+
+
 public class Redis : IDisposable {
 	Socket socket;
 	BufferedStream bstream;
-
-	static Dictionary<string,Action<byte[]>> CallBacks;
+	
+	/* JS (09/27/2010): subscription handling members */
+	bool doWork;
+	Dictionary<string,Action<byte[]>> callBacks;
+	System.Threading.Thread workerThread;
 	
 	
 	public enum KeyType {
@@ -433,6 +438,14 @@ public class Redis : IDisposable {
 			throw new ResponseException ("Unexpected length parameter" + r);
 		}
 		
+		/* JS (09/27/2010): Returns the number of clients "subscribed" to a channel */
+		if (c == ':') {
+				int n;
+				if (Int32.TryParse(r.Substring(1), out n))
+					return n <= 0 ? new byte[0] : ReadData();
+				
+			}
+		
 		throw new ResponseException ("Unexpected reply: " + r);
 	}	
 
@@ -824,29 +837,77 @@ public class Redis : IDisposable {
 	
 	void SubscritionWorker() 
 	{
-		Socket s = new Socket (AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-		s.Connect(this.Host,this.Port);
-	
+		byte[] message;
+		string channel = String.Empty;
+			
 		
-		while (true) 
+		while (doWork) 
 		{
+			message = ReadData();
+						 
+			if (Encoding.ASCII.GetString(message) == "message") {
+				message = ReadData();	/* Channel */
+				channel = Encoding.ASCII.GetString(message);
+				message = ReadData(); /* Data */
+				
+				/* Determine which action we're calling */
+				lock(callBacks) {
+					callBacks[channel](message);	
+					Log("");
+				}
+			}
 						
 		}
 		
 	}
-	
+
 		
 	public void SubscribeToChannel(string channel, Action<byte[]> callBack)
 	{
 		RequireMinimumVersion("2.0.0");
 		
+		
 		/* JS (09/26/2010): If the dictionary of callbacks is null, create that, and start the thread to listen for them */
-		if (CallBacks == null) 
+		if (callBacks == null || callBacks.Count == 0) 
 		{
-			CallBacks = new Dictionary<string, Action<byte[]>>();
-			
+			callBacks = new Dictionary<string, Action<byte[]>>();
+			doWork = true;
+			workerThread = new System.Threading.Thread(SubscritionWorker);
+			workerThread.Start();
 		}
 		
+		lock(callBacks) 
+		{
+			if (callBacks.ContainsKey(channel)) return;
+			
+			callBacks.Add(channel, callBack);
+			
+			SendCommand("SUBSCRIBE {0}\r\n", channel);
+					           
+			
+		}
+				
+	}
+	
+	public void UnSubscribeFromChannel(string channel) 
+	{
+				
+		lock(callBacks) {
+			if (callBacks == null) return;
+			
+			if (!callBacks.ContainsKey(channel)) return;
+			
+			callBacks.Remove(channel);
+			
+			doWork = (callBacks.Count > 0);
+			
+			SendCommand("unsubscribe {0}\r\n", channel);
+			
+						
+		}
+		
+		/* Wait for the worker thread to finish up */
+		if (!doWork) workerThread.Join();
 				
 	}
 	
