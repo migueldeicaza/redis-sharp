@@ -3,6 +3,7 @@
 //
 // Authors:
 //   Miguel de Icaza (miguel@gnome.org)
+//   Jonathan R. Steele (jrsteele@gmail.com)
 //
 // Copyright 2010 Novell, Inc.
 //
@@ -438,7 +439,9 @@ public class Redis : IDisposable {
 			throw new ResponseException ("Unexpected length parameter" + r);
 		}
 		
-		/* JS (09/27/2010): Returns the number of clients "subscribed" to a channel */
+		/* JS (09/27/2010):
+		 * 	This is needed for handling messages that come in via (p)subscribe commands.
+		 */
 		if (c == ':') {
 				int n;
 				if (Int32.TryParse(r.Substring(1), out n))

@@ -3,6 +3,9 @@ using System.Text;
 using System.Collections.Generic;
 
 class Test {
+	
+	static readonly string publishTestValue = "This is a test.";
+	
 	static void Main (string[] args)
 	{
         Redis r;
@@ -125,6 +128,25 @@ class Test {
 		 if (r.Keys.Length > 0)
             Console.WriteLine("error: there should be no keys but there were {0}", r.Keys.Length);
 		
+		
+				
+		
+		Redis subscriber = new Redis(r.Host, r.Port);
+						
+		subscriber.Subscribe("TestChannel", mesg => {
+			var tmp = Encoding.ASCII.GetString(mesg);
+			assert(tmp == publishTestValue, "Received message from PUBLISH should match expected value.");
+				
+		});
+				
+		int result = r.Publish("TestChannel", publishTestValue);
+		
+		assert(1 == result, "There should be one subscribed client.");
+		
+		subscriber.Unsubscribe();
+		subscriber.Dispose();
+		
+		r.Dispose();
 		
 	}
 
