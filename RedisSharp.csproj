@@ -39,7 +39,9 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="redis-sharp.cs" />
+    <Compile Include="RedisBase.cs" />
+    <Compile Include="Redis.cs" />
+    <Compile Include="Subscriber.cs" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Properties\" />

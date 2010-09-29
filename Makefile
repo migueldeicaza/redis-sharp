@@ -1,5 +1,5 @@
 run: test.exe
 	mono --debug test.exe
 
-test.exe: test.cs redis-sharp.cs Makefile
-	gmcs -debug test.cs redis-sharp.cs
+test.exe: test.cs RedisBase.cs Redis.cs Subscriber.cs Makefile
+	gmcs -debug test.cs RedisBase.cs Redis.cs Subscriber.cs
