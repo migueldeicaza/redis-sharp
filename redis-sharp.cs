@@ -44,7 +44,8 @@ public abstract class RedisBase : IDisposable {
 		public string Code { get; private set; }
 	}
 	
-	public RedisBase(string host, int port)
+		
+	protected RedisBase(string host, int port)
 	{
 		if (host == null)
 			throw new ArgumentNullException ("host");
@@ -378,6 +379,20 @@ public class Redis : RedisBase {
 	
 	public Redis () : this ("localhost", 6379) 
 	{ }
+	
+	protected override void Dispose (bool disposing)
+	{
+		if (subscriptions != null) {
+			subscriptions.Dispose();
+		}
+		
+		base.Dispose (disposing);
+	}
+	
+	~Redis() 
+	{
+		Dispose(false);
+	}
 
 	public string this [string key] {
 		get { return GetString (key); }

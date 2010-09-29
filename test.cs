@@ -127,9 +127,7 @@ class Test {
 		
 		 if (r.Keys.Length > 0)
             Console.WriteLine("error: there should be no keys but there were {0}", r.Keys.Length);
-		
-		
-				
+	
 		
 		Redis subscriber = new Redis(r.Host, r.Port);
 						
