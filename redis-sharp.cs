@@ -19,17 +19,17 @@ using System.Text;
 using System.Diagnostics;
 using System.Linq;
 
-
-
-public class Redis : IDisposable {
-	Socket socket;
-	BufferedStream bstream;
+public abstract class RedisBase : IDisposable {
 	
-	/* JS (09/27/2010): subscription handling members */
-	bool continueWorking;
-	Dictionary<string,Action<byte[]>> callBacks;
-	System.Threading.Thread workerThread;
+	protected Socket socket;
+	protected BufferedStream bstream;
 	
+	public string Host { get; private set; }
+	public int Port { get; private set; }
+	public int RetryTimeout { get; set; }
+	public int RetryCount { get; set; }
+	public int SendTimeout { get; set; }
+	public string Password { get; set; }
 	
 	public enum KeyType {
 		None, String, List, Set
@@ -44,7 +44,7 @@ public class Redis : IDisposable {
 		public string Code { get; private set; }
 	}
 	
-	public Redis (string host, int port)
+	public RedisBase(string host, int port)
 	{
 		if (host == null)
 			throw new ArgumentNullException ("host");
@@ -54,22 +54,7 @@ public class Redis : IDisposable {
 		SendTimeout = -1;
 	}
 	
-	public Redis (string host) : this (host, 6379)
-	{
-	}
-	
-	public Redis () : this ("localhost", 6379)
-	{
-	}
-
-	public string Host { get; private set; }
-	public int Port { get; private set; }
-	public int RetryTimeout { get; set; }
-	public int RetryCount { get; set; }
-	public int SendTimeout { get; set; }
-	public string Password { get; set; }
-	
-	int db;
+	protected int db;
 	public int Db {
 		get {
 			return db;
@@ -80,6 +65,319 @@ public class Redis : IDisposable {
 			SendExpectSuccess ("SELECT {0}\r\n", db);
 		}
 	}
+	
+	#region Public Methods
+	public Dictionary<string,string> GetInfo ()
+	{
+		byte [] r = SendExpectData (null, "INFO\r\n");
+		var dict = new Dictionary<string,string>();
+		
+		foreach (var line in Encoding.UTF8.GetString (r).Split ('\n')){
+			int p = line.IndexOf (':');
+			if (p == -1)
+				continue;
+			dict.Add (line.Substring (0, p), line.Substring (p+1));
+		}
+		return dict;
+	}
+	#endregion
+	
+	#region Helper Methods
+	protected string ReadLine ()
+	{
+		var sb = new StringBuilder ();
+		int c;
+		
+		while ((c = bstream.ReadByte ()) != -1){
+			if (c == '\r')
+				continue;
+			if (c == '\n')
+				break;
+			sb.Append ((char) c);
+		}
+		return sb.ToString ();
+	}
+	
+	protected void Connect ()
+	{
+		socket = new Socket (AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+		socket.NoDelay = true;
+		socket.SendTimeout = SendTimeout;
+		socket.Connect (Host, Port);
+		if (!socket.Connected){
+			socket.Close ();
+			socket = null;
+			return;
+		}
+		bstream = new BufferedStream (new NetworkStream (socket), 16*1024);
+		
+		if (Password != null)
+			SendExpectSuccess ("AUTH {0}\r\n", Password);
+	}
+
+	protected byte [] end_data = new byte [] { (byte) '\r', (byte) '\n' };
+	
+	protected bool SendDataCommand (byte [] data, string cmd, params object [] args)
+	{
+		if (socket == null)
+			Connect ();
+		if (socket == null)
+			return false;
+
+		var s = args.Length > 0 ? String.Format (cmd, args) : cmd;
+		byte [] r = Encoding.UTF8.GetBytes (s);
+		try {
+			Log ("S: " + String.Format (cmd, args));
+			socket.Send (r);
+			if (data != null){
+				socket.Send (data);
+				socket.Send (end_data);
+			}
+		} catch (SocketException){
+			// timeout;
+			socket.Close ();
+			socket = null;
+
+			return false;
+		}
+		return true;
+	}
+
+	protected bool SendCommand (string cmd, params object [] args)
+	{
+		if (socket == null)
+			Connect ();
+		if (socket == null)
+			return false;
+
+		var s = args != null && args.Length > 0 ? String.Format (cmd, args) : cmd;
+		byte [] r = Encoding.UTF8.GetBytes (s);
+		try {
+			Log ("S: " + String.Format (cmd, args));
+			socket.Send (r);
+		} catch (SocketException){
+			// timeout;
+			socket.Close ();
+			socket = null;
+
+			return false;
+		}
+		return true;
+	}
+	
+	[Conditional ("DEBUG")]
+	protected void Log (string fmt, params object [] args)
+	{
+		Console.WriteLine ("{0}", String.Format (fmt, args).Trim ());
+	}
+
+	protected void ExpectSuccess ()
+	{
+		int c = bstream.ReadByte ();
+		if (c == -1)
+			throw new ResponseException ("No more data");
+
+		var s = ReadLine ();
+		Log ((char)c + s);
+		if (c == '-')
+			throw new ResponseException (s.StartsWith ("ERR") ? s.Substring (4) : s);
+	}
+	
+	protected void SendExpectSuccess (string cmd, params object [] args)
+	{
+		if (!SendCommand (cmd, args))
+			throw new Exception ("Unable to connect");
+
+		ExpectSuccess ();
+	}	
+
+	protected int SendDataExpectInt (byte[] data, string cmd, params object [] args)
+	{
+		if (!SendDataCommand (data, cmd, args))
+			throw new Exception ("Unable to connect");
+
+		int c = bstream.ReadByte ();
+		if (c == -1)
+			throw new ResponseException ("No more data");
+
+		var s = ReadLine ();
+		Log ("R: " + s);
+		if (c == '-')
+			throw new ResponseException (s.StartsWith ("ERR") ? s.Substring (4) : s);
+		if (c == ':'){
+			int i;
+			if (int.TryParse (s, out i))
+				return i;
+		}
+		throw new ResponseException ("Unknown reply on integer request: " + c + s);
+	}	
+
+	protected int SendExpectInt (string cmd, params object [] args)
+	{
+		if (!SendCommand (cmd, args))
+			throw new Exception ("Unable to connect");
+
+		int c = bstream.ReadByte ();
+		if (c == -1)
+			throw new ResponseException ("No more data");
+
+		var s = ReadLine ();
+		Log ("R: " + s);
+		if (c == '-')
+			throw new ResponseException (s.StartsWith ("ERR") ? s.Substring (4) : s);
+		if (c == ':'){
+			int i;
+			if (int.TryParse (s, out i))
+				return i;
+		}
+		throw new ResponseException ("Unknown reply on integer request: " + c + s);
+	}	
+
+	protected string SendExpectString (string cmd, params object [] args)
+	{
+		if (!SendCommand (cmd, args))
+			throw new Exception ("Unable to connect");
+
+		int c = bstream.ReadByte ();
+		if (c == -1)
+			throw new ResponseException ("No more data");
+
+		var s = ReadLine ();
+		Log ("R: " + s);
+		if (c == '-')
+			throw new ResponseException (s.StartsWith ("ERR") ? s.Substring (4) : s);
+		if (c == '+')
+			return s;
+		
+		throw new ResponseException ("Unknown reply on integer request: " + c + s);
+	}	
+
+	//
+	// This one does not throw errors
+	//
+	protected string SendGetString (string cmd, params object [] args)
+	{
+		if (!SendCommand (cmd, args))
+			throw new Exception ("Unable to connect");
+
+		return ReadLine ();
+	}	
+	
+	protected byte [] SendExpectData (byte[] data, string cmd, params object [] args)
+	{
+		if (!SendDataCommand (data, cmd, args))
+			throw new Exception ("Unable to connect");
+
+		return ReadData ();
+	}
+
+	protected byte [] ReadData ()
+	{
+		string r = ReadLine ();
+		Log ("R: {0}", r);
+		if (r.Length == 0)
+			throw new ResponseException ("Zero length respose");
+		
+		char c = r [0];
+		if (c == '-')
+			throw new ResponseException (r.StartsWith ("-ERR") ? r.Substring (5) : r.Substring (1));
+
+		if (c == '$'){
+			if (r == "$-1")
+				return null;
+			int n;
+			
+			if (Int32.TryParse (r.Substring (1), out n)){
+				byte [] retbuf = new byte [n];
+
+				int bytesRead = 0;
+				do {
+					int read = bstream.Read (retbuf, bytesRead, n - bytesRead);
+					if (read < 1)
+						throw new ResponseException("Invalid termination mid stream");
+					bytesRead += read; 
+				}
+				while (bytesRead < n);
+				if (bstream.ReadByte () != '\r' || bstream.ReadByte () != '\n')
+					throw new ResponseException ("Invalid termination");
+				return retbuf;
+			}
+			throw new ResponseException ("Invalid length");
+		}
+
+		//returns the number of matches
+		if (c == '*') {
+			int n;
+			if (Int32.TryParse(r.Substring(1), out n)) 
+				return n <= 0 ? new byte [0] : ReadData();
+			
+			throw new ResponseException ("Unexpected length parameter" + r);
+		}
+		
+		/* JS (09/27/2010):
+		 * 	This is needed for handling messages that come in via (p)subscribe commands.
+		 */
+		if (c == ':') {
+				int n;
+				if (Int32.TryParse(r.Substring(1), out n))
+					return n <= 0 ? new byte[0] : ReadData();
+				
+			}
+		
+		throw new ResponseException ("Unexpected reply: " + r);
+	}	
+	
+	/// <summary>
+	/// Require a minimum version. 
+	/// </summary>
+	protected void RequireMinimumVersion(string version)
+	{
+		var info = GetInfo();
+		string ver = info["redis_version"];
+		
+		if (ver.CompareTo(version) < 0)
+			throw new Exception(String.Format("Expecting Redis version {0}, but got {1}", version, ver));
+	}
+	
+	#endregion
+	
+	#region Cleanup methods
+	public void Dispose ()
+	{
+		Dispose (true);
+		GC.SuppressFinalize (this);
+	}
+
+	~RedisBase ()
+	{
+		Dispose (false);
+	}
+	
+	protected virtual void Dispose (bool disposing)
+	{
+		if (disposing){
+			SendCommand ("QUIT\r\n");
+			socket.Close ();
+			socket = null;
+		}
+	}
+	#endregion
+	
+}
+
+
+public class Redis : RedisBase {
+	
+	private Subscriber subscriptions;
+		
+	public Redis (string host, int port) : base(host, port)
+	{ }
+	
+	public Redis (string host) : this (host, 6379)
+	{ }
+	
+	public Redis () : this ("localhost", 6379) 
+	{ }
 
 	public string this [string key] {
 		get { return GetString (key); }
@@ -208,249 +506,6 @@ public class Redis : IDisposable {
 		return Encoding.UTF8.GetString (GetSet (key, Encoding.UTF8.GetBytes (value)));
 	}
 	
-	string ReadLine ()
-	{
-		var sb = new StringBuilder ();
-		int c;
-		
-		while ((c = bstream.ReadByte ()) != -1){
-			if (c == '\r')
-				continue;
-			if (c == '\n')
-				break;
-			sb.Append ((char) c);
-		}
-		return sb.ToString ();
-	}
-	
-	void Connect ()
-	{
-		socket = new Socket (AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-		socket.NoDelay = true;
-		socket.SendTimeout = SendTimeout;
-		socket.Connect (Host, Port);
-		if (!socket.Connected){
-			socket.Close ();
-			socket = null;
-			return;
-		}
-		bstream = new BufferedStream (new NetworkStream (socket), 16*1024);
-		
-		if (Password != null)
-			SendExpectSuccess ("AUTH {0}\r\n", Password);
-	}
-
-	byte [] end_data = new byte [] { (byte) '\r', (byte) '\n' };
-	
-	bool SendDataCommand (byte [] data, string cmd, params object [] args)
-	{
-		if (socket == null)
-			Connect ();
-		if (socket == null)
-			return false;
-
-		var s = args.Length > 0 ? String.Format (cmd, args) : cmd;
-		byte [] r = Encoding.UTF8.GetBytes (s);
-		try {
-			Log ("S: " + String.Format (cmd, args));
-			socket.Send (r);
-			if (data != null){
-				socket.Send (data);
-				socket.Send (end_data);
-			}
-		} catch (SocketException){
-			// timeout;
-			socket.Close ();
-			socket = null;
-
-			return false;
-		}
-		return true;
-	}
-
-	bool SendCommand (string cmd, params object [] args)
-	{
-		if (socket == null)
-			Connect ();
-		if (socket == null)
-			return false;
-
-		var s = args != null && args.Length > 0 ? String.Format (cmd, args) : cmd;
-		byte [] r = Encoding.UTF8.GetBytes (s);
-		try {
-			Log ("S: " + String.Format (cmd, args));
-			socket.Send (r);
-		} catch (SocketException){
-			// timeout;
-			socket.Close ();
-			socket = null;
-
-			return false;
-		}
-		return true;
-	}
-	
-	[Conditional ("DEBUG")]
-	void Log (string fmt, params object [] args)
-	{
-		Console.WriteLine ("{0}", String.Format (fmt, args).Trim ());
-	}
-
-	void ExpectSuccess ()
-	{
-		int c = bstream.ReadByte ();
-		if (c == -1)
-			throw new ResponseException ("No more data");
-
-		var s = ReadLine ();
-		Log ((char)c + s);
-		if (c == '-')
-			throw new ResponseException (s.StartsWith ("ERR") ? s.Substring (4) : s);
-	}
-	
-	void SendExpectSuccess (string cmd, params object [] args)
-	{
-		if (!SendCommand (cmd, args))
-			throw new Exception ("Unable to connect");
-
-		ExpectSuccess ();
-	}	
-
-	int SendDataExpectInt (byte[] data, string cmd, params object [] args)
-	{
-		if (!SendDataCommand (data, cmd, args))
-			throw new Exception ("Unable to connect");
-
-		int c = bstream.ReadByte ();
-		if (c == -1)
-			throw new ResponseException ("No more data");
-
-		var s = ReadLine ();
-		Log ("R: " + s);
-		if (c == '-')
-			throw new ResponseException (s.StartsWith ("ERR") ? s.Substring (4) : s);
-		if (c == ':'){
-			int i;
-			if (int.TryParse (s, out i))
-				return i;
-		}
-		throw new ResponseException ("Unknown reply on integer request: " + c + s);
-	}	
-
-	int SendExpectInt (string cmd, params object [] args)
-	{
-		if (!SendCommand (cmd, args))
-			throw new Exception ("Unable to connect");
-
-		int c = bstream.ReadByte ();
-		if (c == -1)
-			throw new ResponseException ("No more data");
-
-		var s = ReadLine ();
-		Log ("R: " + s);
-		if (c == '-')
-			throw new ResponseException (s.StartsWith ("ERR") ? s.Substring (4) : s);
-		if (c == ':'){
-			int i;
-			if (int.TryParse (s, out i))
-				return i;
-		}
-		throw new ResponseException ("Unknown reply on integer request: " + c + s);
-	}	
-
-	string SendExpectString (string cmd, params object [] args)
-	{
-		if (!SendCommand (cmd, args))
-			throw new Exception ("Unable to connect");
-
-		int c = bstream.ReadByte ();
-		if (c == -1)
-			throw new ResponseException ("No more data");
-
-		var s = ReadLine ();
-		Log ("R: " + s);
-		if (c == '-')
-			throw new ResponseException (s.StartsWith ("ERR") ? s.Substring (4) : s);
-		if (c == '+')
-			return s;
-		
-		throw new ResponseException ("Unknown reply on integer request: " + c + s);
-	}	
-
-	//
-	// This one does not throw errors
-	//
-	string SendGetString (string cmd, params object [] args)
-	{
-		if (!SendCommand (cmd, args))
-			throw new Exception ("Unable to connect");
-
-		return ReadLine ();
-	}	
-	
-	byte [] SendExpectData (byte[] data, string cmd, params object [] args)
-	{
-		if (!SendDataCommand (data, cmd, args))
-			throw new Exception ("Unable to connect");
-
-		return ReadData ();
-	}
-
-	byte [] ReadData ()
-	{
-		string r = ReadLine ();
-		Log ("R: {0}", r);
-		if (r.Length == 0)
-			throw new ResponseException ("Zero length respose");
-		
-		char c = r [0];
-		if (c == '-')
-			throw new ResponseException (r.StartsWith ("-ERR") ? r.Substring (5) : r.Substring (1));
-
-		if (c == '$'){
-			if (r == "$-1")
-				return null;
-			int n;
-			
-			if (Int32.TryParse (r.Substring (1), out n)){
-				byte [] retbuf = new byte [n];
-
-				int bytesRead = 0;
-				do {
-					int read = bstream.Read (retbuf, bytesRead, n - bytesRead);
-					if (read < 1)
-						throw new ResponseException("Invalid termination mid stream");
-					bytesRead += read; 
-				}
-				while (bytesRead < n);
-				if (bstream.ReadByte () != '\r' || bstream.ReadByte () != '\n')
-					throw new ResponseException ("Invalid termination");
-				return retbuf;
-			}
-			throw new ResponseException ("Invalid length");
-		}
-
-		//returns the number of matches
-		if (c == '*') {
-			int n;
-			if (Int32.TryParse(r.Substring(1), out n)) 
-				return n <= 0 ? new byte [0] : ReadData();
-			
-			throw new ResponseException ("Unexpected length parameter" + r);
-		}
-		
-		/* JS (09/27/2010):
-		 * 	This is needed for handling messages that come in via (p)subscribe commands.
-		 */
-		if (c == ':') {
-				int n;
-				if (Int32.TryParse(r.Substring(1), out n))
-					return n <= 0 ? new byte[0] : ReadData();
-				
-			}
-		
-		throw new ResponseException ("Unexpected reply: " + r);
-	}	
 
 	public bool ContainsKey (string key)
 	{
@@ -594,19 +649,7 @@ public class Redis : IDisposable {
 		}
 	}
 	
-	public Dictionary<string,string> GetInfo ()
-	{
-		byte [] r = SendExpectData (null, "INFO\r\n");
-		var dict = new Dictionary<string,string>();
-		
-		foreach (var line in Encoding.UTF8.GetString (r).Split ('\n')){
-			int p = line.IndexOf (':');
-			if (p == -1)
-				continue;
-			dict.Add (line.Substring (0, p), line.Substring (p+1));
-		}
-		return dict;
-	}
+
 
 	public string [] Keys {
 		get {
@@ -807,17 +850,6 @@ public class Redis : IDisposable {
 	
 	
 	#region Publish / Subscribe methods
-	/// <summary>
-	/// Require a minimum version. 
-	/// </summary>
-	void RequireMinimumVersion(string version)
-	{
-		var info = GetInfo();
-		string ver = info["redis_version"];
-		
-		if (ver.CompareTo(version) < 0)
-			throw new Exception(String.Format("Expecting Redis version {0}, but got {1}", version, ver));
-	}
 	
 	/// <summary>
 	/// Publis data to a given channel
@@ -839,6 +871,124 @@ public class Redis : IDisposable {
 		    throw new ArgumentNullException();
 		
 		return Publish(channel, Encoding.UTF8.GetBytes(data));
+	}
+
+	public void Subscribe(string channel, Action<byte[]> callBack)
+	{		
+		if (subscriptions == null)
+			subscriptions = new Subscriber(this.Host, this.Port);
+		
+		subscriptions.Add(channel,callBack);
+					
+	}
+	
+		
+	/// <summary>
+	/// Unsubscribe from all channels
+	/// </summary>
+	public void Unsubscribe()
+	{
+		if (subscriptions == null) 
+			return;
+		
+		subscriptions.RemoveAll();
+
+	}
+
+	public void PUnsubscribe(string channel)  { Unsubscribe(channel); }
+	
+	public void Unsubscribe(string channel) 
+	{
+		if (subscriptions == null) 
+			return;
+		
+		subscriptions.Remove(channel);
+	}
+	
+	#endregion
+
+	
+}
+
+public class SortOptions {
+	public string Key { get; set; }
+	public bool Descending { get; set; }
+	public bool Lexographically { get; set; }
+	public Int32 LowerLimit { get; set; }
+	public Int32 UpperLimit { get; set; }
+	public string By { get; set; }
+	public string StoreInKey { get; set; }
+	public string Get { get; set; }
+	
+	public string ToCommand()
+	{
+		var command = "SORT " + this.Key;
+		if (LowerLimit != 0 || UpperLimit != 0)
+			command += " LIMIT " + LowerLimit + " " + UpperLimit;
+		if (Lexographically)
+			command += " ALPHA";
+		if (!string.IsNullOrEmpty (By))
+			command += " BY " + By;
+		if (!string.IsNullOrEmpty (Get))
+			command += " GET " + Get;
+		if (!string.IsNullOrEmpty (StoreInKey))
+			command += " STORE " + StoreInKey;
+		return command;
+	}
+}
+
+
+internal class Subscriber  : RedisBase {
+		
+	System.Threading.Thread worker;
+	Dictionary<string,Action<byte[]>> callBacks;
+	bool continueWorking;
+
+	internal Subscriber(String host, int port) : base(host, port)
+	{ }
+	
+	public void Add(string channel, Action<byte[]> callBack)
+	{
+		AddToCallBack(channel, callBack);		
+		
+		if (!channel.Contains("*"))
+			SendCommand("SUBSCRIBE {0}\r\n", channel);
+		else
+			SendCommand("PSUBSCRIBE {0}\r\n", channel);
+		
+	}
+	
+	public void Remove(string channel)
+	{
+		lock(callBacks) {
+			if (callBacks == null) return;
+			
+			if (!callBacks.ContainsKey(channel)) return;
+			
+			callBacks.Remove(channel);
+			
+			continueWorking = (callBacks.Count > 0);
+			
+			if (channel.Contains("*"))
+				SendCommand("punsubscribe {0}\r\n", channel);
+			else
+				SendCommand("unsubscribe {0}\r\n", channel);
+
+		}
+		
+		/* Wait for the worker thread to finish up */
+		if (!continueWorking) worker.Join();
+		
+	}
+	
+	public void RemoveAll()
+	{
+		continueWorking = false;
+		SendCommand("UNSUBSCRIBE\r\n");
+		worker.Join();
+		
+		callBacks.Clear();
+		callBacks = null;
 	}
 	
 	/// <summary>
@@ -890,6 +1040,7 @@ public class Redis : IDisposable {
 		
 	}
 	
+	
 	/// <summary>
 	/// Add an Action to the dictionary of callbacks
 	/// </summary>
@@ -903,8 +1054,8 @@ public class Redis : IDisposable {
 			RequireMinimumVersion("2.0.0");
 			callBacks = new Dictionary<string, Action<byte[]>>();
 			continueWorking = true;
-			workerThread = new System.Threading.Thread(SubscritionWorker);
-			workerThread.Start();
+			worker = new System.Threading.Thread(SubscritionWorker);
+			worker.Start();
 		}
 		
 		lock(callBacks) {
@@ -912,114 +1063,15 @@ public class Redis : IDisposable {
 			callBacks.Add(channel, callBack);
 		}
 	}
-
-		
-	public void Subscribe(string channel, Action<byte[]> callBack)
-	{			
-		AddToCallBack(channel, callBack);					
-		SendCommand("SUBSCRIBE {0}\r\n", channel);
-					
-	}
 	
-	public void PSubscribe(string channel, Action<byte[]> callBack)
+	protected override void Dispose (bool disposing)
 	{
-		AddToCallBack(channel,callBack);
-		SendCommand("PSUBSCRIBE {0}\r\n", channel);
-	}
-	
-	/// <summary>
-	/// Unsubscribe from all channels
-	/// </summary>
-	public void Unsubscribe()
-	{
-		continueWorking = false;
-		SendCommand("UNSUBSCRIBE\r\n");
-		workerThread.Join();
-		
-		callBacks.Clear();
-		callBacks = null;
-		
-	}
-
-	public void PUnsubscribe(string channel)  { Unsubscribe(channel); }
-	
-	public void Unsubscribe(string channel) 
-	{
-		lock(callBacks) {
-			if (callBacks == null) return;
-			
-			if (!callBacks.ContainsKey(channel)) return;
-			
-			callBacks.Remove(channel);
-			
-			continueWorking = (callBacks.Count > 0);
-			
-			if (channel.Contains("*"))
-				SendCommand("punsubscribe {0}\r\n", channel);
-			else
-				SendCommand("unsubscribe {0}\r\n", channel);
-
+		if (continueWorking) {
+			RemoveAll();
 		}
+		base.Dispose (disposing);
 		
-		/* Wait for the worker thread to finish up */
-		if (!continueWorking) workerThread.Join();
-				
+		
 	}
 	
-	#endregion
-
-	public void Dispose ()
-	{
-		Dispose (true);
-		GC.SuppressFinalize (this);
-	}
-
-	~Redis ()
-	{
-		Dispose (false);
-	}
-	
-	protected virtual void Dispose (bool disposing)
-	{
-		if (disposing){
-			
-			/* JS (09/27/2010): Clean up the worker thread, if needbe */
-			if (continueWorking) {
-				Unsubscribe();
-			}
-			
-			SendCommand ("QUIT\r\n");
-			socket.Close ();
-			socket = null;
-		}
-	}
 }
-
-public class SortOptions {
-	public string Key { get; set; }
-	public bool Descending { get; set; }
-	public bool Lexographically { get; set; }
-	public Int32 LowerLimit { get; set; }
-	public Int32 UpperLimit { get; set; }
-	public string By { get; set; }
-	public string StoreInKey { get; set; }
-	public string Get { get; set; }
-	
-	public string ToCommand()
-	{
-		var command = "SORT " + this.Key;
-		if (LowerLimit != 0 || UpperLimit != 0)
-			command += " LIMIT " + LowerLimit + " " + UpperLimit;
-		if (Lexographically)
-			command += " ALPHA";
-		if (!string.IsNullOrEmpty (By))
-			command += " BY " + By;
-		if (!string.IsNullOrEmpty (Get))
-			command += " GET " + Get;
-		if (!string.IsNullOrEmpty (StoreInKey))
-			command += " STORE " + StoreInKey;
-		return command;
-	}
-}
-
-	
