@@ -20,9 +20,10 @@ using System.IO;
 public class Redis : RedisBase {
 	
 	private Subscriber subscriptions;
+	
 		
 	public Redis (string host, int port) : base(host, port)
-	{ }
+	{  }
 	
 	public Redis (string host) : this (host, 6379)
 	{ }
@@ -314,26 +315,32 @@ public class Redis : RedisBase {
 		}
 	}
 	
-
-
 	public string [] Keys {
-		get {
-			string commandResponse = Encoding.UTF8.GetString (SendExpectData (null, "KEYS *\r\n"));
-			if (commandResponse.Length < 1) 
-				return new string [0];
-			else
-				return commandResponse.Split (' ');
+		get {;
+			return GetKeys("*");
 		}
 	}
 
 	public string [] GetKeys (string pattern)
 	{
-		if (pattern == null)
+	   if (pattern == null)
 			throw new ArgumentNullException ("key");
-		var keys = SendExpectData (null, "KEYS {0}\r\n", pattern);
-		if (keys.Length == 0)
-			return new string [0];
-		return Encoding.UTF8.GetString (keys).Split (' ');
+		
+		if (hostInformation["redis_version"][0] == '2') {
+			byte[][] response = SendDataCommandExpectMultiBulkReply(null, "KEYS {0}\r\n", pattern);
+			List<string> keys = new List<string>();
+			
+			foreach (byte[] b in response) {
+				keys.Add(Encoding.UTF8.GetString(b));
+			}
+			
+			return keys.ToArray();		
+		} else {
+			var keys = SendExpectData (null, "KEYS {0}\r\n", pattern);
+			if (keys.Length == 0)
+				return new string [0];
+			return Encoding.UTF8.GetString (keys).Split (' ');
+		}
 	}
 
 	public byte [][] GetKeys (params string [] keys)
@@ -347,31 +354,6 @@ public class Redis : RedisBase {
 	}
 
 
-	public byte[][] SendDataCommandExpectMultiBulkReply(byte[] data, string command, params object[] args)
-	{
-		if (!SendDataCommand(data, command, args))
-			throw new Exception("Unable to connect");
-		int c = bstream.ReadByte();
-		if (c == -1)
-			throw new ResponseException("No more data");
-		
-		var s = ReadLine();
-		Log("R: " + s);
-		if (c == '-')
-			throw new ResponseException(s.StartsWith("ERR") ? s.Substring(4) : s);
-		if (c == '*') {
-			int count;
-			if (int.TryParse (s, out count)) {
-				var result = new byte [count][];
-				
-				for (int i = 0; i < count; i++)
-					result[i] = ReadData();
-				
-				return result;
-			}
-		}
-		throw new ResponseException("Unknown reply on multi-request: " + c + s);
-	}
 	
 	#region List commands
 	public byte[][] ListRange(string key, int start, int end)
@@ -539,7 +521,9 @@ public class Redis : RedisBase {
 	}
 
 	public void Subscribe(string channel, Action<byte[]> callBack)
-	{		
+	{
+		RequireMinimumVersion("2.0.0");
+		
 		if (subscriptions == null)
 			subscriptions = new Subscriber(this.Host, this.Port);
 		
@@ -553,6 +537,8 @@ public class Redis : RedisBase {
 	/// </summary>
 	public void Unsubscribe()
 	{
+		RequireMinimumVersion("2.0.0");
+		
 		if (subscriptions == null) 
 			return;
 		
@@ -564,6 +550,8 @@ public class Redis : RedisBase {
 	
 	public void Unsubscribe(string channel) 
 	{
+		RequireMinimumVersion("2.0.0");
+		
 		if (subscriptions == null) 
 			return;
 		

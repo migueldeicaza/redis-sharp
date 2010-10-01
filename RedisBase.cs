@@ -24,6 +24,8 @@ public abstract class RedisBase : IDisposable {
 	protected Socket socket;
 	protected BufferedStream bstream;
 	
+	protected Dictionary<string,string> hostInformation;
+	
 	public string Host { get; private set; }
 	public int Port { get; private set; }
 	public int RetryTimeout { get; set; }
@@ -53,6 +55,8 @@ public abstract class RedisBase : IDisposable {
 		Host = host;
 		Port = port;
 		SendTimeout = -1;
+		
+		hostInformation = GetInfo();
 	}
 	
 	protected int db;
@@ -80,6 +84,32 @@ public abstract class RedisBase : IDisposable {
 			dict.Add (line.Substring (0, p), line.Substring (p+1));
 		}
 		return dict;
+	}
+	
+	public byte[][] SendDataCommandExpectMultiBulkReply(byte[] data, string command, params object[] args)
+	{
+		if (!SendDataCommand(data, command, args))
+			throw new Exception("Unable to connect");
+		int c = bstream.ReadByte();
+		if (c == -1)
+			throw new ResponseException("No more data");
+		
+		var s = ReadLine();
+		Log("R: " + s);
+		if (c == '-')
+			throw new ResponseException(s.StartsWith("ERR") ? s.Substring(4) : s);
+		if (c == '*') {
+			int count;
+			if (int.TryParse (s, out count)) {
+				var result = new byte [count][];
+				
+				for (int i = 0; i < count; i++)
+					result[i] = ReadData();
+				
+				return result;
+			}
+		}
+		throw new ResponseException("Unknown reply on multi-request: " + c + s);
 	}
 	#endregion
 	
@@ -328,14 +358,14 @@ public abstract class RedisBase : IDisposable {
 		throw new ResponseException ("Unexpected reply: " + r);
 	}	
 	
+	
+	
 	/// <summary>
 	/// Require a minimum version. 
 	/// </summary>
 	protected void RequireMinimumVersion(string version)
-	{
-		var info = GetInfo();
-		string ver = info["redis_version"];
-		
+	{		
+		string ver = hostInformation["redis_version"];
 		if (ver.CompareTo(version) < 0)
 			throw new Exception(String.Format("Expecting Redis version {0}, but got {1}", version, ver));
 	}
