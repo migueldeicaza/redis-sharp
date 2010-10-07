@@ -2,6 +2,9 @@ using System;
 using System.Text;
 using System.Collections.Generic;
 
+using RedisSharp;
+using RedisSharp.Extensions;
+
 class Test {
 	
 	static readonly string publishTestValue = "This is a test.";
@@ -130,7 +133,8 @@ class Test {
 	
 		
 		Redis subscriber = new Redis(r.Host, r.Port);
-						
+		
+								
 		subscriber.Subscribe("TestChannel", mesg => {
 			var tmp = Encoding.ASCII.GetString(mesg);
 			assert(tmp == publishTestValue, "Received message from PUBLISH should match expected value.");
