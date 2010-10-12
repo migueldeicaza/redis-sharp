@@ -356,32 +356,12 @@ namespace RedisSharp {
 	
 		
 		#region List commands
-		public byte[][] ListRange(string key, int start, int end)
+				
+		public RedisSharp.Collections.RedisList<T> GetListObject<T>(string key)
 		{
-			return SendDataCommandExpectMultiBulkReply (null, "LRANGE {0} {1} {2}\r\n", key, start, end);
+			return new RedisSharp.Collections.RedisList<T>(key,this.Host,this.Port);			
 		}
-	
-		public void RightPush(string key, string value)
-		{
-			SendExpectSuccess ("RPUSH {0} {1}\r\n{2}\r\n", key, value.Length, value);
-		}
-	
-		public int ListLength (string key)
-		{
-			return SendExpectInt ("LLEN {0}\r\n", key);
-		}
-	
-		public byte[] ListIndex (string key, int index)
-		{
-			SendCommand ("LINDEX {0} {1}\r\n", key, index);
-			return ReadData ();
-		}
-	
-		public byte[] LeftPop(string key)
-		{
-			SendCommand ("LPOP {0}\r\n", key);
-			return ReadData ();
-		}
+		
 		#endregion
 	
 		#region Set commands

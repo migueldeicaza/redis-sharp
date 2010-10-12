@@ -82,22 +82,23 @@ class Test {
 		
 		//r.Set (dict);
 
-        r.RightPush("alist", "avalue");
-        r.RightPush("alist", "another value");
-        assert(r.ListLength("alist") == 2, "List length should have been 2");
-
-        var value = Encoding.UTF8.GetString(r.ListIndex("alist", 1));
-        if(!value.Equals("another value"))
-          Console.WriteLine("error: Received {0} and should have been 'another value'", value);
-        value = Encoding.UTF8.GetString(r.LeftPop("alist"));
-        if (!value.Equals("avalue"))
-            Console.WriteLine("error: Received {0} and should have been 'avalue'", value);
-        if (r.ListLength("alist") != 1)
-            Console.WriteLine("error: List should have one element after pop");
-        r.RightPush("alist", "yet another value");
-        byte[][] values = r.ListRange("alist", 0, 1);
-        if (!Encoding.UTF8.GetString(values[0]).Equals("another value"))
-            Console.WriteLine("error: Range did not return the right values");
+//		  JS (10/12/2010): This code is now obsolete. A new test needs to be written.		
+//        r.RightPush("alist", "avalue");
+//        r.RightPush("alist", "another value");
+//        assert(r.ListLength("alist") == 2, "List length should have been 2");
+//
+//        var value = Encoding.UTF8.GetString(r.ListIndex("alist", 1));
+//        if(!value.Equals("another value"))
+//          Console.WriteLine("error: Received {0} and should have been 'another value'", value);
+//        value = Encoding.UTF8.GetString(r.LeftPop("alist"));
+//        if (!value.Equals("avalue"))
+//            Console.WriteLine("error: Received {0} and should have been 'avalue'", value);
+//        if (r.ListLength("alist") != 1)
+//            Console.WriteLine("error: List should have one element after pop");
+//        r.RightPush("alist", "yet another value");
+//        byte[][] values = r.ListRange("alist", 0, 1);
+//        if (!Encoding.UTF8.GetString(values[0]).Equals("another value"))
+//            Console.WriteLine("error: Range did not return the right values");
 
         assert(r.AddToSet("FOO", Encoding.UTF8.GetBytes("BAR")), "Problem adding to set");
         assert(r.AddToSet("FOO", Encoding.UTF8.GetBytes("BAZ")),"Problem adding to set");
