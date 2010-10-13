@@ -65,7 +65,9 @@ namespace RedisSharp.Collections {
 			}
 			set {
 				byte[] data = Serialize(value);
-				SendDataExpectInt(data, "LSET {0} {1} {2}\r\n", Key, index, data.Length);
+				SendDataCommand(data, "LSET {0} {1} {2}\r\n", Key, index, data.Length);
+				ExpectSuccess();
+				
 			}
 			
 		}
@@ -76,11 +78,81 @@ namespace RedisSharp.Collections {
 			}
 		}
 		
+		public bool IsFixedSize {
+			get { return false; }
+		}
+		
+		public bool IsReadOnly {
+			get { return false; }
+		}
+		
+		public bool IsSynchronized {
+			get { return false; }
+		}
+		
+		public Object SyncRoot {
+			get { return this; }
+		}
+		
 		public void Add(T item)
 		{
 			byte[] data = Serialize(item);
 			SendDataExpectInt(data, "RPUSH {0} {1}\r\n", Key, data.Length);
 		}
+		
+		
+		
+		public void Insert(int index, T item)
+		{
+			int len = Length;
+			if (index < len && index > 0) {
+				Add(item); // Add it first to expand the list
+				
+				for (int idx = Length - 1; idx > index; idx--) {
+					this[idx] = this[idx-1];					
+				}
+				this[index] = item;
+			}
+		}
+		
+		public bool Contains(T input)
+		{
+			return (IndexOf(input) >= 0);
+		}
+		
+		public int IndexOf(T input)
+		{		
+			for (int i = 0; i < Length; i++) {
+				if ( input.Equals(this[i]) ) return i;
+			}
+			
+			return -1;
+		}
+		
+		public T[] GetRange(int start, int end)
+		{
+			List<T> data = new List<T>();
+			
+			byte[][] result = SendDataCommandExpectMultiBulkReply(null, "LRANGE {0} {1} {2}\r\n", Key, start, end);
+			
+			foreach (byte[] itm in result) 
+				data.Add(DeSerialize(itm));
+			
+			result = null;
+			
+			return data.ToArray();
+			
+		}
+		
+		public void CopyTo(Array array, int index)
+		{
+			int j = index;
+			for (int i=0; i < Length; i++) {
+				array.SetValue(this[i], j);
+				j++;
+			}
+		}
+		
 		
 		public void Remove(T item)
 		{
@@ -104,20 +176,6 @@ namespace RedisSharp.Collections {
 			
 		}
 		
-		public T[] GetRange(int start, int end)
-		{
-			List<T> data = new List<T>();
-			
-			byte[][] result = SendDataCommandExpectMultiBulkReply(null, "LRANGE {0} {1} {2}\r\n", Key, start, end);
-			
-			foreach (byte[] itm in result) 
-				data.Add(DeSerialize(itm));
-			
-			result = null;
-			
-			return data.ToArray();
-			
-		}
 	}
 	
 	
