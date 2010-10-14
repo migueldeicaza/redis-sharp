@@ -1,10 +1,13 @@
-//  RedisGenericBase.cs
+//  RedisGenericBase.cs : Generic methods for Abstracted Collections
 //  
-//  Author:
-//       Jonathan R. Steele <jsteele@sabresystems.com>
-//  
-//  Copyright (c) 2010 Sabre Systems, Inc
-// 
+// Authors:
+//   Miguel de Icaza (miguel@gnome.org)
+//   Jonathan R. Steele (jrsteele@gmail.com)
+//
+// Copyright 2010 Novell, Inc.
+//
+// Licensed under the same terms of reddis: new BSD license.
+//
 using System;
 using System.Collections;
 using System.Collections.Generic;
