@@ -8,6 +8,7 @@
 // Licensed under the same terms of reddis: new BSD license.
 //
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Runtime.Serialization;
@@ -15,46 +16,11 @@ using System.Runtime.Serialization.Formatters.Binary;
 
 namespace RedisSharp.Collections {
 	
-	public class RedisList<T> : RedisBase
+	public class RedisList<T> : RedisGenericBase<T>, IList<T>, IEnumerable, IEnumerable<T>
 	{
-		internal RedisList(string key, string host, int port) : base (host, port) { Key = key; }
+		internal RedisList(string key, string host, int port) : base(key, host, port)
+		{}
 		
-		public string Key {
-			get;
-			private set;
-		}
-		
-		protected T DeSerialize(byte[] data)
-		{
-			IFormatter bFormatter = new BinaryFormatter();
-			MemoryStream ms = new MemoryStream(data);
-			
-			T result =  (T)bFormatter.Deserialize(ms);
-			
-			ms.Dispose();
-			ms.Close();
-			
-			return result;
-			
-		}
-		
-		protected byte[] Serialize(T data)
-		{
-			IFormatter bFormatter = new BinaryFormatter();
-			MemoryStream ms = new MemoryStream();
-			
-			bFormatter.Serialize(ms, data);
-			
-			ms.Position = 0;
-			
-			byte[] result = ms.ToArray();
-			
-			ms.Dispose();
-			ms.Close();
-			
-			return result;
-		}
-	
 		
 		public T this[int index] {
 			get {
@@ -72,7 +38,7 @@ namespace RedisSharp.Collections {
 			
 		}
 		
-		public int Length {
+		public int Count {
 			get {
 				return SendExpectInt("LLEN {0}\r\n", Key);
 			}
@@ -104,11 +70,11 @@ namespace RedisSharp.Collections {
 		
 		public void Insert(int index, T item)
 		{
-			int len = Length;
+			int len = Count;
 			if (index < len && index > 0) {
 				Add(item); // Add it first to expand the list
 				
-				for (int idx = Length - 1; idx > index; idx--) {
+				for (int idx = Count - 1; idx > index; idx--) {
 					this[idx] = this[idx-1];					
 				}
 				this[index] = item;
@@ -122,7 +88,7 @@ namespace RedisSharp.Collections {
 		
 		public int IndexOf(T input)
 		{		
-			for (int i = 0; i < Length; i++) {
+			for (int i = 0; i < Count; i++) {
 				if ( input.Equals(this[i]) ) return i;
 			}
 			
@@ -144,20 +110,20 @@ namespace RedisSharp.Collections {
 			
 		}
 		
-		public void CopyTo(Array array, int index)
+		public void CopyTo(T[] array, int index)
 		{
 			int j = index;
-			for (int i=0; i < Length; i++) {
+			for (int i=0; i < Count; i++) {
 				array.SetValue(this[i], j);
 				j++;
 			}
 		}
 		
 		
-		public void Remove(T item)
+		public bool Remove(T item)
 		{
 			byte[] data = Serialize(item);
-			SendDataExpectInt(data, "LREM {0} 1 {1}\r\n", Key, data.Length);
+			return (SendDataExpectInt(data, "LREM {0} 1 {1}\r\n", Key, data.Length) > 0);
 		}
 		
 		public void RemoveAt(int index)
@@ -173,6 +139,63 @@ namespace RedisSharp.Collections {
 		public void Clear()
 		{
 			SendExpectInt("DEL {0}\r\n", Key);
+						
+		}
+		
+		
+		public IEnumerator<T> GetEnumerator ()
+		{
+			return new RedisList<T>.Enumerator(GetRange(0, Count - 1));
+		}
+		
+	
+		
+		IEnumerator IEnumerable.GetEnumerator ()
+		{
+			return new RedisList<T>.Enumerator(GetRange(0, Count - 1));
+		}
+		
+		
+		public struct Enumerator : IEnumerator<T>, IEnumerator {
+			
+			T[] data;
+			int position;
+			
+			internal Enumerator(T[] input)
+			{
+				data = input;
+				position = -1;
+			}
+			
+			public bool MoveNext()
+			{
+				position++;
+				return (position < data.Length);
+			}
+			
+			public void Reset()
+			{
+				position = -1;
+			}
+			
+			object System.Collections.IEnumerator.Current {
+				 get {
+					return Current;
+				}
+			}
+			
+			
+			public T Current {
+				get {
+					try {
+						return data[position];
+					} catch (IndexOutOfRangeException) {
+						 throw new InvalidOperationException();
+					}
+				}
+			}
+			
+			public void Dispose() { }
 			
 		}
 		

@@ -44,6 +44,8 @@
     <Compile Include="Subscriber.cs" />
     <Compile Include="RedisExtensions.cs" />
     <Compile Include="Collections\RedisList.cs" />
+    <Compile Include="Collections\RedisSet.cs" />
+    <Compile Include="Collections\RedisGenericBase.cs" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Properties\" />
