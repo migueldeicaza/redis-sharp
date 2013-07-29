@@ -652,6 +652,11 @@ public class Redis : IDisposable {
 		return SendDataCommandExpectMultiBulkReply (null, "LRANGE {0} {1} {2}\r\n", key, start, end);
 	}
 
+        public void LeftPush(string key, string value)
+        {
+                SendExpectSuccess("LPUSH {0} {1}\r\n{2}\r\n", key, value.Length, value);
+        }
+
 	public void RightPush(string key, string value)
 	{
 		SendExpectSuccess ("RPUSH {0} {1}\r\n{2}\r\n", key, value.Length, value);
