@@ -68,7 +68,7 @@ public class Redis : IDisposable {
 
 		set {
 			db = value;
-			SendExpectSuccess ("SELECT {0}\r\n", db);
+			SendExpectSuccess (ToRESP("SELECT", db));
 		}
 	}
 
@@ -159,7 +159,7 @@ public class Redis : IDisposable {
 	{
 		if (key == null)
 			throw new ArgumentNullException ("key");
-		return SendExpectData (null, "GET " + key + "\r\n");
+		return SendExpectData (null, ToRESP("GET", key));
 	}
 
 	public string GetString (string key)
@@ -228,7 +228,7 @@ public class Redis : IDisposable {
 		bstream = new BufferedStream (new NetworkStream (socket), 16*1024);
 		
 		if (Password != null)
-			SendExpectSuccess ("AUTH {0}\r\n", Password);
+			SendExpectSuccess (ToRESP("AUTH", Password));
 	}
 
 	byte [] end_data = new byte [] { (byte) '\r', (byte) '\n' };
@@ -437,56 +437,56 @@ public class Redis : IDisposable {
 	{
 		if (key == null)
 			throw new ArgumentNullException ("key");
-		return SendExpectInt ("EXISTS " + key + "\r\n") == 1;
+		return SendExpectInt (ToRESP("EXISTS", key)) == 1;
 	}
 
 	public bool Remove (string key)
 	{
 		if (key == null)
 			throw new ArgumentNullException ("key");
-		return SendExpectInt ("DEL " + key + "\r\n", key) == 1;
+		return SendExpectInt (ToRESP("DEL", key)) == 1;
 	}
 
 	public int Remove (params string [] args)
 	{
 		if (args == null)
 			throw new ArgumentNullException ("args");
-		return SendExpectInt ("DEL " + string.Join (" ", args) + "\r\n");
+		return SendExpectInt (ToRESP("DEL", args));
 	}
 
 	public int Increment (string key)
 	{
 		if (key == null)
 			throw new ArgumentNullException ("key");
-		return SendExpectInt ("INCR " + key + "\r\n");
+		return SendExpectInt (ToRESP("INCR", key));
 	}
 
 	public int Increment (string key, int count)
 	{
 		if (key == null)
 			throw new ArgumentNullException ("key");
-		return SendExpectInt ("INCRBY {0} {1}\r\n", key, count);
+		return SendExpectInt (ToRESP("INCRBY", key, count));
 	}
 
 	public int Decrement (string key)
 	{
 		if (key == null)
 			throw new ArgumentNullException ("key");
-		return SendExpectInt ("DECR " + key + "\r\n");
+		return SendExpectInt (ToRESP("DECR", key));
 	}
 
 	public int Decrement (string key, int count)
 	{
 		if (key == null)
 			throw new ArgumentNullException ("key");
-		return SendExpectInt ("DECRBY {0} {1}\r\n", key, count);
+		return SendExpectInt (ToRESP("DECRBY", key, count));
 	}
 
 	public KeyType TypeOf (string key)
 	{
 		if (key == null)
 			throw new ArgumentNullException ("key");
-		switch (SendExpectString ("TYPE {0}\r\n", key)){
+		switch (SendExpectString (ToRESP("TYPE", key))) {
 		case "none":
 			return KeyType.None;
 		case "string":
@@ -501,7 +501,7 @@ public class Redis : IDisposable {
 
 	public string RandomKey ()
 	{
-		return SendExpectString ("RANDOMKEY\r\n");
+		return SendExpectString (ToRESP("RANDOMKEY"));
 	}
 
 	public bool Rename (string oldKeyname, string newKeyname)
@@ -510,66 +510,66 @@ public class Redis : IDisposable {
 			throw new ArgumentNullException ("oldKeyname");
 		if (newKeyname == null)
 			throw new ArgumentNullException ("newKeyname");
-		return SendGetString ("RENAME {0} {1}\r\n", oldKeyname, newKeyname) [0] == '+';
+		return SendGetString (ToRESP("RENAME", oldKeyname, newKeyname)) [0] == '+';
 	}
 
 	public bool Expire (string key, int seconds)
 	{
 		if (key == null)
 			throw new ArgumentNullException ("key");
-		return SendExpectInt ("EXPIRE {0} {1}\r\n", key, seconds) == 1;
+		return SendExpectInt (ToRESP("EXPIRE", key, seconds)) == 1;
 	}
 
 	public bool ExpireAt (string key, int time)
 	{
 		if (key == null)
 			throw new ArgumentNullException ("key");
-		return SendExpectInt ("EXPIREAT {0} {1}\r\n", key, time) == 1;
+		return SendExpectInt (ToRESP("EXPIREAT", key, time)) == 1;
 	}
 
 	public int TimeToLive (string key)
 	{
 		if (key == null)
 			throw new ArgumentNullException ("key");
-		return SendExpectInt ( "TTL {0}\r\n", key);
+		return SendExpectInt (ToRESP("TTL", key));
 	}
 	
 	public int DbSize {
 		get {
-			return SendExpectInt ("DBSIZE\r\n");
+			return SendExpectInt (ToRESP("DBSIZE"));
 		}
 	}
 
 	public void Save ()
 	{
-		SendExpectSuccess ("SAVE\r\n");
+		SendExpectSuccess (ToRESP("SAVE"));
 	}
 
 	public void BackgroundSave ()
 	{
-		SendExpectSuccess ("BGSAVE\r\n");
+		SendExpectSuccess (ToRESP("BGSAVE"));
 	}
 
 	public void Shutdown ()
 	{
-		SendExpectSuccess ("SHUTDOWN\r\n");
+		SendExpectSuccess (ToRESP("SHUTDOWN"));
 	}
 
 	public void FlushAll ()
 	{
-		SendExpectSuccess ("FLUSHALL\r\n");
+		SendExpectSuccess (ToRESP("FLUSHALL"));
 	}
 	
 	public void FlushDb ()
 	{
-		SendExpectSuccess ("FLUSHDB\r\n");
+		SendExpectSuccess (ToRESP("FLUSHDB"));
 	}
 
 	const long UnixEpoch = 621355968000000000L;
 	
 	public DateTime LastSave {
 		get {
-			int t = SendExpectInt ("LASTSAVE\r\n");
+			int t = SendExpectInt (ToRESP("LASTSAVE"));
 			
 			return new DateTime (UnixEpoch) + TimeSpan.FromSeconds (t);
 		}
@@ -577,7 +577,7 @@ public class Redis : IDisposable {
 	
 	public Dictionary<string,string> GetInfo ()
 	{
-		byte [] r = SendExpectData (null, "INFO\r\n");
+		byte [] r = SendExpectData (null, ToRESP("INFO"));
 		var dict = new Dictionary<string,string>();
 		
 		foreach (var line in Encoding.UTF8.GetString (r).Split ('\n')){
@@ -591,7 +591,7 @@ public class Redis : IDisposable {
 
 	public string [] Keys {
 		get {
-			string commandResponse = Encoding.UTF8.GetString (SendExpectData (null, "KEYS *\r\n"));
+			string commandResponse = Encoding.UTF8.GetString (SendExpectData (null, ToRESP("KEYS", "*")));
 			if (commandResponse.Length < 1) 
 				return new string [0];
 			else
@@ -603,7 +603,7 @@ public class Redis : IDisposable {
 	{
 		if (pattern == null)
 			throw new ArgumentNullException ("key");
-		var keys = SendExpectData (null, "KEYS {0}\r\n", pattern);
+		var keys = SendExpectData (null, ToRESP("KEYS", pattern));
 		if (keys.Length == 0)
 			return new string [0];
 		return Encoding.UTF8.GetString (keys).Split (' ');
@@ -616,7 +616,7 @@ public class Redis : IDisposable {
 		if (keys.Length == 0)
 			throw new ArgumentException ("keys");
 		
-		return SendDataCommandExpectMultiBulkReply (null, "MGET {0}\r\n", string.Join (" ", keys));
+		return SendDataCommandExpectMultiBulkReply (null, ToRESP("MGET", keys));
 	}
 
 
@@ -649,7 +649,7 @@ public class Redis : IDisposable {
 	#region List commands
 	public byte[][] ListRange(string key, int start, int end)
 	{
-		return SendDataCommandExpectMultiBulkReply (null, "LRANGE {0} {1} {2}\r\n", key, start, end);
+		return SendDataCommandExpectMultiBulkReply (null, ToRESP("LRANGE", key, start, end));
 	}
 
 	public void LeftPush(string key, string value)
@@ -664,18 +664,18 @@ public class Redis : IDisposable {
 
 	public int ListLength (string key)
 	{
-		return SendExpectInt ("LLEN {0}\r\n", key);
+		return SendExpectInt (ToRESP("LLEN", key));
 	}
 
 	public byte[] ListIndex (string key, int index)
 	{
-		SendCommand ("LINDEX {0} {1}\r\n", key, index);
+		SendCommand (ToRESP("LINDEX", key, index));
 		return ReadData ();
 	}
 
 	public byte[] LeftPop(string key)
 	{
-		SendCommand ("LPOP {0}\r\n", key);
+		SendCommand (ToRESP("LPOP", key));
 		return ReadData ();
 	}
 	#endregion
@@ -693,7 +693,7 @@ public class Redis : IDisposable {
 	
 	public int CardinalityOfSet (string key)
 	{
-		return SendDataExpectInt (null, "SCARD {0}\r\n", key);
+		return SendDataExpectInt (null, ToRESP("SCARD", key));
 	}
 
 	public bool IsMemberOfSet (string key, byte[] member)
@@ -708,17 +708,17 @@ public class Redis : IDisposable {
 	
 	public byte[][] GetMembersOfSet (string key)
 	{
-		return SendDataCommandExpectMultiBulkReply (null, "SMEMBERS {0}\r\n", key);
+		return SendDataCommandExpectMultiBulkReply (null, ToRESP("SMEMBERS", key));
 	}
 	
 	public byte[] GetRandomMemberOfSet (string key)
 	{
-		return SendExpectData (null, "SRANDMEMBER {0}\r\n", key);
+		return SendExpectData (null, ToRESP("SRANDMEMBER", key));
 	}
 	
 	public byte[] PopRandomMemberOfSet (string key)
 	{
-		return SendExpectData (null, "SPOP {0}\r\n", key);
+		return SendExpectData (null, ToRESP("SPOP", key));
 	}
 
 	public bool RemoveFromSet (string key, byte[] member)
@@ -736,7 +736,7 @@ public class Redis : IDisposable {
 		if (keys == null)
 			throw new ArgumentNullException();
 		
-		return SendDataCommandExpectMultiBulkReply (null, "SUNION " + string.Join (" ", keys) + "\r\n");
+		return SendDataCommandExpectMultiBulkReply (null, ToRESP("SUNION", keys));
 		
 	}
 	
@@ -751,7 +751,7 @@ public class Redis : IDisposable {
 		if (keys == null)
 			throw new ArgumentNullException ("keys");
 		
-		SendExpectSuccess ("{0} {1} {2}\r\n", cmd, destKey, String.Join(" ", keys));
+		SendExpectSuccess (ToRESP2(cmd, destKey, keys));
 	}
 	
 	public void StoreUnionOfSets (string destKey, params string[] keys)
@@ -764,12 +764,12 @@ public class Redis : IDisposable {
 		if (keys == null)
 			throw new ArgumentNullException();
 		
-		return SendDataCommandExpectMultiBulkReply (null, "SINTER " + string.Join(" ", keys) + "\r\n");
+		return SendDataCommandExpectMultiBulkReply (null, ToRESP("SINTER", keys));
 	}
 	
 	public void StoreIntersectionOfSets (string destKey, params string[] keys)
 	{
-		StoreSetCommands ("SINTERSTORE", destKey, keys);		                 
+		StoreSetCommands ("SINTERSTORE", destKey, keys);
 	}
 	
 	public byte[][] GetDifferenceOfSets (params string[] keys)
@@ -777,19 +777,42 @@ public class Redis : IDisposable {
 		if (keys == null)
 			throw new ArgumentNullException();
 		
-		return SendDataCommandExpectMultiBulkReply (null, "SDIFF " + string.Join (" ", keys) + "\r\n");
+		return SendDataCommandExpectMultiBulkReply (null, ToRESP("SDIFF", keys));
 	}
 	
 	public void StoreDifferenceOfSets (string destKey, params string[] keys)
 	{
-		StoreSetCommands("SDIFFSTORE", destKey, keys);
+		StoreSetCommands ("SDIFFSTORE", destKey, keys);
 	}
 	
 	public bool MoveMemberToSet (string srcKey, string destKey, byte[] member)
 	{
-		return SendDataExpectInt(member, ToDataRESP2("SMOVE", srcKey, destKey, member.Length)) > 0;
+		return SendDataExpectInt (member, ToDataRESP2("SMOVE", srcKey, destKey, member.Length)) > 0;
 	}
 	#endregion
+
+	string ToRESP (string command, params object [] args)
+	{
+		string resp = "*" + (1 + args.Length).ToString () + "\r\n";
+		resp += "$" + command.Length + "\r\n" + command + "\r\n";
+		foreach (object arg in args) {
+			string argStr = arg.ToString ();
+			resp += "$" + argStr.Length + "\r\n" + argStr + "\r\n";
+		}
+		return resp;
+	}
+
+	string ToRESP2 (string command, string key, params object [] args)
+	{
+		string resp = "*" + (2 + args.Length).ToString () + "\r\n";
+		resp += "$" + command.Length + "\r\n" + command + "\r\n";
+		resp += "$" + key.Length + "\r\n" + key + "\r\n";
+		foreach (object arg in args) {
+			string argStr = arg.ToString ();
+			resp += "$" + argStr.Length + "\r\n" + argStr + "\r\n";
+		}
+		return resp;
+	}
 
 	string ToDataRESP (string command, string key, int dataLength)
 	{
