@@ -17,23 +17,26 @@ class Test {
         r.FlushAll();
         if (r.Keys.Length > 0)
             Console.WriteLine("error: there should be no keys but there were {0}", r.Keys.Length);
-    	r.Set ("foo", "bar");
+		r.Set ("foo", "bar");
 		if (r.Keys.Length < 1)
 			Console.WriteLine ("error: there should be at least one key");
-		if (r.GetKeys ("f*").Length < 1)
-			Console.WriteLine ("error: there should be at least one key");
+		r.Set ("foo bar", "bar foo");
+		if (r.GetKeys ("f*").Length < 2)
+			Console.WriteLine ("error: there should be at least two keys");
 		
 		if (r.TypeOf ("foo") != Redis.KeyType.String)
 			Console.WriteLine ("error: type is not string");
 		r.Set ("bar", "foo");
 
-		var arr = r.GetKeys ("foo", "bar");
-		if (arr.Length != 2)
-			Console.WriteLine ("error, expected 2 values");
+		var arr = r.MGet ("foo", "bar", "foo bar");
+		if (arr.Length != 3)
+			Console.WriteLine ("error, expected 3 values");
 		if (arr [0].Length != 3)
 			Console.WriteLine ("error, expected foo to be 3");
 		if (arr [1].Length != 3)
 			Console.WriteLine ("error, expected bar to be 3");
+		if (arr [2].Length != 7)
+			Console.WriteLine ("error, expected \"foo bar\" to be 7");
 		
 		r ["one"] = "world";
 		if (r.GetSet ("one", "newvalue") != "world")

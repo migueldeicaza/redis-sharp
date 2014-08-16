@@ -421,6 +421,7 @@ public class Redis : IDisposable {
 			throw new ResponseException ("Invalid length");
 		}
 
+		/* don't treat arrays here because only one element works -- use MultiBulkReply!
 		//returns the number of matches
 		if (c == '*') {
 			int n;
@@ -429,7 +430,8 @@ public class Redis : IDisposable {
 			
 			throw new ResponseException ("Unexpected length parameter" + r);
 		}
-		
+		*/
+
 		throw new ResponseException ("Unexpected reply: " + r);
 	}	
 
@@ -591,11 +593,7 @@ public class Redis : IDisposable {
 
 	public string [] Keys {
 		get {
-			string commandResponse = Encoding.UTF8.GetString (SendExpectData (null, ToRESP("KEYS", "*")));
-			if (commandResponse.Length < 1) 
-				return new string [0];
-			else
-				return commandResponse.Split (' ');
+			return GetKeys("*");
 		}
 	}
 
@@ -603,13 +601,14 @@ public class Redis : IDisposable {
 	{
 		if (pattern == null)
 			throw new ArgumentNullException ("key");
-		var keys = SendExpectData (null, ToRESP("KEYS", pattern));
-		if (keys.Length == 0)
-			return new string [0];
-		return Encoding.UTF8.GetString (keys).Split (' ');
+		byte [][] reply = SendDataCommandExpectMultiBulkReply (null, ToRESP("KEYS", pattern));
+		string [] keys = new string [reply.Length];
+		for (int i = 0; i < reply.Length; i++)
+			keys[i] = Encoding.UTF8.GetString (reply[i]);
+		return keys;
 	}
 
-	public byte [][] GetKeys (params string [] keys)
+	public byte [][] MGet (params string [] keys)
 	{
 		if (keys == null)
 			throw new ArgumentNullException ("key1");
