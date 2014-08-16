@@ -296,7 +296,7 @@ public class Redis : IDisposable {
 		string s = ReadLine ();
 		Log ((char)c + s);
 		if (c == '-')
-			throw new ResponseException (s.StartsWith ("ERR") ? s.Substring (4) : s);
+			throw new ResponseException (s.StartsWith ("ERR ") ? s.Substring (4) : s);
 	}
 	
 	void SendExpectSuccess (string cmd, params object [] args)
@@ -319,7 +319,7 @@ public class Redis : IDisposable {
 		string s = ReadLine ();
 		Log ("R: " + s);
 		if (c == '-')
-			throw new ResponseException (s.StartsWith ("ERR") ? s.Substring (4) : s);
+			throw new ResponseException (s.StartsWith ("ERR ") ? s.Substring (4) : s);
 		if (c == ':'){
 			int i;
 			if (int.TryParse (s, out i))
@@ -340,7 +340,7 @@ public class Redis : IDisposable {
 		string s = ReadLine ();
 		Log ("R: " + s);
 		if (c == '-')
-			throw new ResponseException (s.StartsWith ("ERR") ? s.Substring (4) : s);
+			throw new ResponseException (s.StartsWith ("ERR ") ? s.Substring (4) : s);
 		if (c == ':'){
 			int i;
 			if (int.TryParse (s, out i))
@@ -361,7 +361,7 @@ public class Redis : IDisposable {
 		string s = ReadLine ();
 		Log ("R: " + s);
 		if (c == '-')
-			throw new ResponseException (s.StartsWith ("ERR") ? s.Substring (4) : s);
+			throw new ResponseException (s.StartsWith ("ERR ") ? s.Substring (4) : s);
 		if (c == '+')
 			return s;
 		
@@ -630,7 +630,7 @@ public class Redis : IDisposable {
 		string s = ReadLine();
 		Log("R: " + s);
 		if (c == '-')
-			throw new ResponseException(s.StartsWith("ERR") ? s.Substring(4) : s);
+			throw new ResponseException(s.StartsWith("ERR ") ? s.Substring(4) : s);
 		if (c == '*') {
 			int count;
 			if (int.TryParse (s, out count)) {
