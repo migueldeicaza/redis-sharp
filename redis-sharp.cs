@@ -654,12 +654,24 @@ public class Redis : IDisposable {
 
 	public void LeftPush(string key, string value)
 	{
-		SendExpectSuccess (ToDataRESP("LPUSH", key, value.Length) + "{0}\r\n", value);
+		LeftPush(key, Encoding.UTF8.GetBytes (value));
+	}
+
+	public void LeftPush(string key, byte [] value)
+	{
+		SendDataCommand (value, ToDataRESP("LPUSH", key, value.Length));
+		ExpectSuccess();
 	}
 
 	public void RightPush(string key, string value)
 	{
-		SendExpectSuccess (ToDataRESP("RPUSH", key, value.Length) + "{0}\r\n", value);
+		RightPush(key, Encoding.UTF8.GetBytes (value));
+	}
+
+	public void RightPush(string key, byte [] value)
+	{
+		SendDataCommand (value, ToDataRESP("RPUSH", key, value.Length));
+		ExpectSuccess();
 	}
 
 	public int ListLength (string key)
@@ -676,6 +688,12 @@ public class Redis : IDisposable {
 	public byte[] LeftPop(string key)
 	{
 		SendCommand (ToRESP("LPOP", key));
+		return ReadData ();
+	}
+
+	public byte[] RightPop(string key)
+	{
+		SendCommand (ToRESP("RPOP", key));
 		return ReadData ();
 	}
 	#endregion
