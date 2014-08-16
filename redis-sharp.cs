@@ -97,7 +97,7 @@ public class Redis : IDisposable {
 		if (value.Length > 1073741824)
 			throw new ArgumentException ("value exceeds 1G", "value");
 
-		if (!SendDataCommand (value, "SET {0} {1}\r\n", key, value.Length))
+		if (!SendDataCommand (value, ToDataRESP("SET", key, value.Length)))
 			throw new Exception ("Unable to connect");
 		ExpectSuccess ();
 	}
@@ -122,7 +122,7 @@ public class Redis : IDisposable {
 		if (value.Length > 1073741824)
 			throw new ArgumentException ("value exceeds 1G", "value");
 
-		return SendDataExpectInt (value, "SETNX {0} {1}\r\n", key, value.Length) > 0 ? true : false;
+		return SendDataExpectInt (value, ToDataRESP("SETNX", key, value.Length)) > 0 ? true : false;
 	}
 
 	public void Set (IDictionary<string,string> dict)
@@ -184,7 +184,7 @@ public class Redis : IDisposable {
 		if (value.Length > 1073741824)
 			throw new ArgumentException ("value exceeds 1G", "value");
 
-		if (!SendDataCommand (value, "GETSET {0} {1}\r\n", key, value.Length))
+		if (!SendDataCommand (value, ToDataRESP("GETSET", key, value.Length)))
 			throw new Exception ("Unable to connect");
 
 		return ReadData ();
@@ -284,7 +284,7 @@ public class Redis : IDisposable {
 	[Conditional ("DEBUG")]
 	void Log (string fmt, params object [] args)
 	{
-		Console.WriteLine ("{0}", String.Format (fmt, args).Trim ());
+		Console.WriteLine("{0}", String.Format(fmt.Replace("\r\n", " "), args).Trim());
 	}
 
 	void ExpectSuccess ()
@@ -652,14 +652,14 @@ public class Redis : IDisposable {
 		return SendDataCommandExpectMultiBulkReply (null, "LRANGE {0} {1} {2}\r\n", key, start, end);
 	}
 
-        public void LeftPush(string key, string value)
-        {
-                SendExpectSuccess("LPUSH {0} {1}\r\n{2}\r\n", key, value.Length, value);
-        }
+	public void LeftPush(string key, string value)
+	{
+		SendExpectSuccess (ToDataRESP("LPUSH", key, value.Length) + "{0}\r\n", value);
+	}
 
 	public void RightPush(string key, string value)
 	{
-		SendExpectSuccess ("RPUSH {0} {1}\r\n{2}\r\n", key, value.Length, value);
+		SendExpectSuccess (ToDataRESP("RPUSH", key, value.Length) + "{0}\r\n", value);
 	}
 
 	public int ListLength (string key)
@@ -683,7 +683,7 @@ public class Redis : IDisposable {
 	#region Set commands
 	public bool AddToSet (string key, byte[] member)
 	{
-		return SendDataExpectInt(member, "SADD {0} {1}\r\n", key, member.Length) > 0;
+		return SendDataExpectInt(member, ToDataRESP("SADD", key, member.Length)) > 0;
 	}
 
 	public bool AddToSet (string key, string member)
@@ -698,7 +698,7 @@ public class Redis : IDisposable {
 
 	public bool IsMemberOfSet (string key, byte[] member)
 	{
-		return SendDataExpectInt (member, "SISMEMBER {0} {1}\r\n", key, member.Length) > 0;
+		return SendDataExpectInt (member, ToDataRESP("SISMEMBER", key, member.Length)) > 0;
 	}
 
 	public bool IsMemberOfSet(string key, string member)
@@ -723,7 +723,7 @@ public class Redis : IDisposable {
 
 	public bool RemoveFromSet (string key, byte[] member)
 	{
-		return SendDataExpectInt (member, "SREM {0} {1}\r\n", key, member.Length) > 0;
+		return SendDataExpectInt (member, ToDataRESP("SREM", key, member.Length)) > 0;
 	}
 
 	public bool RemoveFromSet (string key, string member)
@@ -787,9 +787,24 @@ public class Redis : IDisposable {
 	
 	public bool MoveMemberToSet (string srcKey, string destKey, byte[] member)
 	{
-		return SendDataExpectInt(member, "SMOVE {0} {1} {2}\r\n", srcKey, destKey, member.Length) > 0;
+		return SendDataExpectInt(member, ToDataRESP2("SMOVE", srcKey, destKey, member.Length)) > 0;
 	}
 	#endregion
+
+	string ToDataRESP (string command, string key, int dataLength)
+	{
+		return "*3\r\n$" + command.Length + "\r\n" + command + "\r\n"
+			+ "$" + key.Length + "\r\n" + key + "\r\n"
+			+ "$" + dataLength + "\r\n";
+	}
+
+	string ToDataRESP2 (string command, string key1, string key2, int dataLength)
+	{
+		return "*4\r\n$" + command.Length + "\r\n" + command + "\r\n"
+			+ "$" + key1.Length + "\r\n" + key1 + "\r\n"
+			+ "$" + key2.Length + "\r\n" + key2 + "\r\n"
+			+ "$" + dataLength + "\r\n";
+	}
 
 	public void Dispose ()
 	{
