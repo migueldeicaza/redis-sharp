@@ -201,7 +201,7 @@ public class Redis : IDisposable {
 	
 	string ReadLine ()
 	{
-		var sb = new StringBuilder ();
+		StringBuilder sb = new StringBuilder ();
 		int c;
 		
 		while ((c = bstream.ReadByte ()) != -1){
@@ -240,7 +240,7 @@ public class Redis : IDisposable {
 		if (socket == null)
 			return false;
 
-		var s = args.Length > 0 ? String.Format (cmd, args) : cmd;
+		string s = args.Length > 0 ? String.Format (cmd, args) : cmd;
 		byte [] r = Encoding.UTF8.GetBytes (s);
 		try {
 			Log ("S: " + String.Format (cmd, args));
@@ -266,7 +266,7 @@ public class Redis : IDisposable {
 		if (socket == null)
 			return false;
 
-		var s = args != null && args.Length > 0 ? String.Format (cmd, args) : cmd;
+		string s = args != null && args.Length > 0 ? String.Format (cmd, args) : cmd;
 		byte [] r = Encoding.UTF8.GetBytes (s);
 		try {
 			Log ("S: " + String.Format (cmd, args));
@@ -293,7 +293,7 @@ public class Redis : IDisposable {
 		if (c == -1)
 			throw new ResponseException ("No more data");
 
-		var s = ReadLine ();
+		string s = ReadLine ();
 		Log ((char)c + s);
 		if (c == '-')
 			throw new ResponseException (s.StartsWith ("ERR") ? s.Substring (4) : s);
@@ -316,7 +316,7 @@ public class Redis : IDisposable {
 		if (c == -1)
 			throw new ResponseException ("No more data");
 
-		var s = ReadLine ();
+		string s = ReadLine ();
 		Log ("R: " + s);
 		if (c == '-')
 			throw new ResponseException (s.StartsWith ("ERR") ? s.Substring (4) : s);
@@ -337,7 +337,7 @@ public class Redis : IDisposable {
 		if (c == -1)
 			throw new ResponseException ("No more data");
 
-		var s = ReadLine ();
+		string s = ReadLine ();
 		Log ("R: " + s);
 		if (c == '-')
 			throw new ResponseException (s.StartsWith ("ERR") ? s.Substring (4) : s);
@@ -358,7 +358,7 @@ public class Redis : IDisposable {
 		if (c == -1)
 			throw new ResponseException ("No more data");
 
-		var s = ReadLine ();
+		string s = ReadLine ();
 		Log ("R: " + s);
 		if (c == '-')
 			throw new ResponseException (s.StartsWith ("ERR") ? s.Substring (4) : s);
@@ -627,14 +627,14 @@ public class Redis : IDisposable {
 		if (c == -1)
 			throw new ResponseException("No more data");
 		
-		var s = ReadLine();
+		string s = ReadLine();
 		Log("R: " + s);
 		if (c == '-')
 			throw new ResponseException(s.StartsWith("ERR") ? s.Substring(4) : s);
 		if (c == '*') {
 			int count;
 			if (int.TryParse (s, out count)) {
-				var result = new byte [count][];
+				byte [][] result = new byte [count][];
 				
 				for (int i = 0; i < count; i++)
 					result[i] = ReadData();
@@ -879,7 +879,7 @@ public class SortOptions {
 	
 	public string ToCommand()
 	{
-		var command = "SORT " + this.Key;
+		string command = "SORT " + this.Key;
 		if (LowerLimit != 0 || UpperLimit != 0)
 			command += " LIMIT " + LowerLimit + " " + UpperLimit;
 		if (Lexographically)
