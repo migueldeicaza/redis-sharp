@@ -540,29 +540,29 @@ public class Redis : IDisposable {
 		}
 	}
 
-	public string Save ()
+	public void Save ()
 	{
-		return SendGetString ("SAVE\r\n");
+		SendExpectSuccess ("SAVE\r\n");
 	}
 
 	public void BackgroundSave ()
 	{
-		SendGetString ("BGSAVE\r\n");
+		SendExpectSuccess ("BGSAVE\r\n");
 	}
 
 	public void Shutdown ()
 	{
-		SendGetString ("SHUTDOWN\r\n");
+		SendExpectSuccess ("SHUTDOWN\r\n");
 	}
 
 	public void FlushAll ()
 	{
-		SendGetString ("FLUSHALL\r\n");
+		SendExpectSuccess ("FLUSHALL\r\n");
 	}
 	
 	public void FlushDb ()
 	{
-		SendGetString ("FLUSHDB\r\n");
+		SendExpectSuccess ("FLUSHDB\r\n");
 	}
 
 	const long UnixEpoch = 621355968000000000L;
