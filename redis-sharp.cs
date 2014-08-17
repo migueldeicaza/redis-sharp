@@ -127,7 +127,10 @@ public class Redis : IDisposable {
 
 	public void Set (IDictionary<string,string> dict)
 	{
-	  Set(dict.ToDictionary(k => k.Key, v => Encoding.UTF8.GetBytes(v.Value)));
+		if (dict == null)
+			throw new ArgumentNullException ("dict");
+
+		Set (dict.ToDictionary(k => k.Key, v => Encoding.UTF8.GetBytes(v.Value)));
 	}
 
 	public void Set (IDictionary<string,byte []> dict)
@@ -135,15 +138,23 @@ public class Redis : IDisposable {
 		if (dict == null)
 			throw new ArgumentNullException ("dict");
 
-		var nl = Encoding.UTF8.GetBytes ("\r\n");
+		MSet (dict.Keys.ToArray (), dict.Values.ToArray ());
+	}
 
-		var ms = new MemoryStream ();
-		foreach (var key in dict.Keys){
-			var val = dict [key];
+	public void MSet (string [] keys, byte [][] values)
+	{
+		if (keys.Length != values.Length)
+			throw new ArgumentException ("keys and values must have the same size");
 
-			var kLength = Encoding.UTF8.GetBytes ("$" + key.Length + "\r\n");
-			var k = Encoding.UTF8.GetBytes (key + "\r\n");
-			var vLength = Encoding.UTF8.GetBytes ("$" + val.Length + "\r\n");
+		byte [] nl = Encoding.UTF8.GetBytes ("\r\n");
+		MemoryStream ms = new MemoryStream ();
+
+		for (int i = 0; i < keys.Length; i++) {
+			byte [] key = Encoding.UTF8.GetBytes(keys[i]);
+			byte [] val = values[i];
+			byte [] kLength = Encoding.UTF8.GetBytes ("$" + key.Length + "\r\n");
+			byte [] k = Encoding.UTF8.GetBytes (keys[i] + "\r\n");
+			byte [] vLength = Encoding.UTF8.GetBytes ("$" + val.Length + "\r\n");
 			ms.Write (kLength, 0, kLength.Length);
 			ms.Write (k, 0, k.Length);
 			ms.Write (vLength, 0, vLength.Length);
@@ -151,7 +162,7 @@ public class Redis : IDisposable {
 			ms.Write (nl, 0, nl.Length);
 		}
 		
-		SendDataCommand (ms.ToArray (), "*" + (dict.Count * 2 + 1) + "\r\n$4\r\nMSET\r\n");
+		SendDataCommand (ms.ToArray (), "*" + (keys.Length * 2 + 1) + "\r\n$4\r\nMSET\r\n");
 		ExpectSuccess ();
 	}
 

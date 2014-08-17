@@ -44,6 +44,8 @@ class Test {
 		assert (r.GetSet ("{one}", "newvalue") == "world", "GetSet failed");
 		assert (r.Rename ("{one}", "two"), "failed to rename");
 		assert (!r.Rename ("{one}", "{one}"), "should have sent an error on rename");
+		r.Set("binary", new byte[] { 0x00, 0x8F });
+		assert((i = r.Get("binary").Length) == 2, "expected 2 bytes, got {0}", i);
 		r.Db = 10;
 		r.Set ("foo", "diez");
 		assert ((s = r.GetString ("foo")) == "diez", "got {0}", s);
@@ -66,11 +68,13 @@ class Test {
 		var dict = new Dictionary<string, byte[]>();
 		dict ["hello"] = Encoding.UTF8.GetBytes ("world");
 		dict ["goodbye"] = Encoding.UTF8.GetBytes ("my dear");
+		dict ["schön"] = Encoding.UTF8.GetBytes("grün");
 		
 		r.Set (dict);
 
 		assert ((s = r.GetString("hello")) == "world", "got \"{0}\"", s);
 		assert ((s = r.GetString("goodbye")) == "my dear", "got \"{0}\"", s);
+		assert ((s = r.GetString("schön")) == "grün", "got \"{0}\"", s);
 
 		r.RightPush("alist", "avalue");
 		r.RightPush("alist", "another value");
