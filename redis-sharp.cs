@@ -242,7 +242,7 @@ public class Redis : IDisposable {
 
 		byte [] r = Encoding.UTF8.GetBytes (cmd);
 		try {
-			Log ("S: " + cmd);
+			Log ("C", cmd);
 			socket.Send (r);
 			if (data != null){
 				socket.Send (data);
@@ -267,7 +267,7 @@ public class Redis : IDisposable {
 
 		byte [] r = Encoding.UTF8.GetBytes (cmd);
 		try {
-			Log ("S: " + cmd);
+			Log ("C", cmd);
 			socket.Send (r);
 		} catch (SocketException){
 			// timeout;
@@ -280,9 +280,9 @@ public class Redis : IDisposable {
 	}
 	
 	[Conditional ("DEBUG")]
-	void Log (string message)
+	void Log (string id, string message)
 	{
-		Console.WriteLine(message.Replace("\r\n", " "));
+		Console.WriteLine(id + ": " + message.Trim().Replace("\r\n", " "));
 	}
 
 	void ExpectSuccess ()
@@ -292,7 +292,7 @@ public class Redis : IDisposable {
 			throw new ResponseException ("No more data");
 
 		string s = ReadLine ();
-		Log ((char)c + s);
+		Log ("S", (char)c + s);
 		if (c == '-')
 			throw new ResponseException (s.StartsWith ("ERR ") ? s.Substring (4) : s);
 	}
@@ -315,7 +315,7 @@ public class Redis : IDisposable {
 			throw new ResponseException ("No more data");
 
 		string s = ReadLine ();
-		Log ("R: " + s);
+		Log ("S", (char)c + s);
 		if (c == '-')
 			throw new ResponseException (s.StartsWith ("ERR ") ? s.Substring (4) : s);
 		if (c == ':'){
@@ -336,7 +336,7 @@ public class Redis : IDisposable {
 			throw new ResponseException ("No more data");
 
 		string s = ReadLine ();
-		Log ("R: " + s);
+		Log ("S", (char)c + s);
 		if (c == '-')
 			throw new ResponseException (s.StartsWith ("ERR ") ? s.Substring (4) : s);
 		if (c == ':'){
@@ -357,7 +357,7 @@ public class Redis : IDisposable {
 			throw new ResponseException ("No more data");
 
 		string s = ReadLine ();
-		Log ("R: " + s);
+		Log ("S", (char)c + s);
 		if (c == '-')
 			throw new ResponseException (s.StartsWith ("ERR ") ? s.Substring (4) : s);
 		if (c == '+')
@@ -387,21 +387,21 @@ public class Redis : IDisposable {
 
 	byte [] ReadData ()
 	{
-		string r = ReadLine ();
-		Log ("R: " + r);
-		if (r.Length == 0)
+		string s = ReadLine ();
+		Log ("S", s);
+		if (s.Length == 0)
 			throw new ResponseException ("Zero length respose");
 		
-		char c = r [0];
+		char c = s [0];
 		if (c == '-')
-			throw new ResponseException (r.StartsWith ("-ERR") ? r.Substring (5) : r.Substring (1));
+			throw new ResponseException (s.StartsWith ("-ERR") ? s.Substring (5) : s.Substring (1));
 
 		if (c == '$'){
-			if (r == "$-1")
+			if (s == "$-1")
 				return null;
 			int n;
 			
-			if (Int32.TryParse (r.Substring (1), out n)){
+			if (Int32.TryParse (s.Substring (1), out n)){
 				byte [] retbuf = new byte [n];
 
 				int bytesRead = 0;
@@ -423,14 +423,14 @@ public class Redis : IDisposable {
 		//returns the number of matches
 		if (c == '*') {
 			int n;
-			if (Int32.TryParse(r.Substring(1), out n)) 
+			if (Int32.TryParse(s.Substring(1), out n)) 
 				return n <= 0 ? new byte [0] : ReadData();
 			
 			throw new ResponseException ("Unexpected length parameter" + r);
 		}
 		*/
 
-		throw new ResponseException ("Unexpected reply: " + r);
+		throw new ResponseException ("Unexpected reply: " + s);
 	}	
 
 	public bool ContainsKey (string key)
@@ -626,7 +626,7 @@ public class Redis : IDisposable {
 			throw new ResponseException("No more data");
 		
 		string s = ReadLine();
-		Log("R: " + s);
+		Log("S", (char)c + s);
 		if (c == '-')
 			throw new ResponseException(s.StartsWith("ERR ") ? s.Substring(4) : s);
 		if (c == '*') {
