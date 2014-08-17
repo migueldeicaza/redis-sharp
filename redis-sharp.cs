@@ -814,7 +814,7 @@ public class Redis : IDisposable {
 		resp += "$" + command.Length + "\r\n" + command + "\r\n";
 		foreach (object arg in args) {
 			string argStr = arg.ToString ();
-			int argStrLength = Encoding.UTF8.GetBytes(argStr).Length;
+			int argStrLength = Encoding.UTF8.GetByteCount(argStr);
 			resp += "$" + argStrLength + "\r\n" + argStr + "\r\n";
 		}
 		return resp;
@@ -822,13 +822,13 @@ public class Redis : IDisposable {
 
 	string ToRESP2 (string command, string key, params object [] args)
 	{
-		int keyLength = Encoding.UTF8.GetBytes(key).Length;
+		int keyLength = Encoding.UTF8.GetByteCount(key);
 		string resp = "*" + (2 + args.Length).ToString () + "\r\n";
 		resp += "$" + command.Length + "\r\n" + command + "\r\n";
 		resp += "$" + keyLength + "\r\n" + key + "\r\n";
 		foreach (object arg in args) {
 			string argStr = arg.ToString ();
-			int argStrLength = Encoding.UTF8.GetBytes(argStr).Length;
+			int argStrLength = Encoding.UTF8.GetByteCount(argStr);
 			resp += "$" + argStrLength + "\r\n" + argStr + "\r\n";
 		}
 		return resp;
@@ -836,7 +836,7 @@ public class Redis : IDisposable {
 
 	string ToDataRESP (string command, string key, int dataLength)
 	{
-		int keyLength = Encoding.UTF8.GetBytes(key).Length;
+		int keyLength = Encoding.UTF8.GetByteCount(key);
 		return "*3\r\n$" + command.Length + "\r\n" + command + "\r\n"
 			+ "$" + keyLength + "\r\n" + key + "\r\n"
 			+ "$" + dataLength + "\r\n";
@@ -844,8 +844,8 @@ public class Redis : IDisposable {
 
 	string ToDataRESP2 (string command, string key1, string key2, int dataLength)
 	{
-		int key1Length = Encoding.UTF8.GetBytes(key1).Length;
-		int key2Length = Encoding.UTF8.GetBytes(key2).Length;
+		int key1Length = Encoding.UTF8.GetByteCount(key1);
+		int key2Length = Encoding.UTF8.GetByteCount(key2);
 		return "*4\r\n$" + command.Length + "\r\n" + command + "\r\n"
 			+ "$" + key1Length + "\r\n" + key1 + "\r\n"
 			+ "$" + key2Length + "\r\n" + key2 + "\r\n"
@@ -899,4 +899,3 @@ public class SortOptions {
 		return command;
 	}
 }
-
