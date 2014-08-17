@@ -814,35 +814,41 @@ public class Redis : IDisposable {
 		resp += "$" + command.Length + "\r\n" + command + "\r\n";
 		foreach (object arg in args) {
 			string argStr = arg.ToString ();
-			resp += "$" + argStr.Length + "\r\n" + argStr + "\r\n";
+			int argStrLength = Encoding.UTF8.GetBytes(argStr).Length;
+			resp += "$" + argStrLength + "\r\n" + argStr + "\r\n";
 		}
 		return resp;
 	}
 
 	string ToRESP2 (string command, string key, params object [] args)
 	{
+		int keyLength = Encoding.UTF8.GetBytes(key).Length;
 		string resp = "*" + (2 + args.Length).ToString () + "\r\n";
 		resp += "$" + command.Length + "\r\n" + command + "\r\n";
-		resp += "$" + key.Length + "\r\n" + key + "\r\n";
+		resp += "$" + keyLength + "\r\n" + key + "\r\n";
 		foreach (object arg in args) {
 			string argStr = arg.ToString ();
-			resp += "$" + argStr.Length + "\r\n" + argStr + "\r\n";
+			int argStrLength = Encoding.UTF8.GetBytes(argStr).Length;
+			resp += "$" + argStrLength + "\r\n" + argStr + "\r\n";
 		}
 		return resp;
 	}
 
 	string ToDataRESP (string command, string key, int dataLength)
 	{
+		int keyLength = Encoding.UTF8.GetBytes(key).Length;
 		return "*3\r\n$" + command.Length + "\r\n" + command + "\r\n"
-			+ "$" + key.Length + "\r\n" + key + "\r\n"
+			+ "$" + keyLength + "\r\n" + key + "\r\n"
 			+ "$" + dataLength + "\r\n";
 	}
 
 	string ToDataRESP2 (string command, string key1, string key2, int dataLength)
 	{
+		int key1Length = Encoding.UTF8.GetBytes(key1).Length;
+		int key2Length = Encoding.UTF8.GetBytes(key2).Length;
 		return "*4\r\n$" + command.Length + "\r\n" + command + "\r\n"
-			+ "$" + key1.Length + "\r\n" + key1 + "\r\n"
-			+ "$" + key2.Length + "\r\n" + key2 + "\r\n"
+			+ "$" + key1Length + "\r\n" + key1 + "\r\n"
+			+ "$" + key2Length + "\r\n" + key2 + "\r\n"
 			+ "$" + dataLength + "\r\n";
 	}
 
