@@ -40,10 +40,10 @@ class Test {
 		assert ((s = Encoding.UTF8.GetString (arr [2])) == "bär foo",
 			"expected \"foo bär\" to be \"bär foo\", got \"{0}\"", s);
 		
-		r ["one"] = "world";
-		assert (r.GetSet ("one", "newvalue") == "world", "GetSet failed");
-		assert (r.Rename ("one", "two"), "failed to rename");
-		assert (!r.Rename ("one", "one"), "should have sent an error on rename");
+		r ["{one}"] = "world";
+		assert (r.GetSet ("{one}", "newvalue") == "world", "GetSet failed");
+		assert (r.Rename ("{one}", "two"), "failed to rename");
+		assert (!r.Rename ("{one}", "{one}"), "should have sent an error on rename");
 		r.Db = 10;
 		r.Set ("foo", "diez");
 		assert ((s = r.GetString ("foo")) == "diez", "got {0}", s);

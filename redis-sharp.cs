@@ -233,17 +233,16 @@ public class Redis : IDisposable {
 
 	byte [] end_data = new byte [] { (byte) '\r', (byte) '\n' };
 	
-	bool SendDataCommand (byte [] data, string cmd, params object [] args)
+	bool SendDataCommand (byte [] data, string cmd)
 	{
 		if (socket == null)
 			Connect ();
 		if (socket == null)
 			return false;
 
-		string s = args.Length > 0 ? String.Format (cmd, args) : cmd;
-		byte [] r = Encoding.UTF8.GetBytes (s);
+		byte [] r = Encoding.UTF8.GetBytes (cmd);
 		try {
-			Log ("S: " + String.Format (cmd, args));
+			Log ("S: " + cmd);
 			socket.Send (r);
 			if (data != null){
 				socket.Send (data);
@@ -259,17 +258,16 @@ public class Redis : IDisposable {
 		return true;
 	}
 
-	bool SendCommand (string cmd, params object [] args)
+	bool SendCommand (string cmd)
 	{
 		if (socket == null)
 			Connect ();
 		if (socket == null)
 			return false;
 
-		string s = args != null && args.Length > 0 ? String.Format (cmd, args) : cmd;
-		byte [] r = Encoding.UTF8.GetBytes (s);
+		byte [] r = Encoding.UTF8.GetBytes (cmd);
 		try {
-			Log ("S: " + String.Format (cmd, args));
+			Log ("S: " + cmd);
 			socket.Send (r);
 		} catch (SocketException){
 			// timeout;
@@ -282,9 +280,9 @@ public class Redis : IDisposable {
 	}
 	
 	[Conditional ("DEBUG")]
-	void Log (string fmt, params object [] args)
+	void Log (string message)
 	{
-		Console.WriteLine("{0}", String.Format(fmt.Replace("\r\n", " "), args).Trim());
+		Console.WriteLine(message.Replace("\r\n", " "));
 	}
 
 	void ExpectSuccess ()
@@ -299,17 +297,17 @@ public class Redis : IDisposable {
 			throw new ResponseException (s.StartsWith ("ERR ") ? s.Substring (4) : s);
 	}
 	
-	void SendExpectSuccess (string cmd, params object [] args)
+	void SendExpectSuccess (string cmd)
 	{
-		if (!SendCommand (cmd, args))
+		if (!SendCommand (cmd))
 			throw new Exception ("Unable to connect");
 
 		ExpectSuccess ();
 	}	
 
-	int SendDataExpectInt (byte[] data, string cmd, params object [] args)
+	int SendDataExpectInt (byte[] data, string cmd)
 	{
-		if (!SendDataCommand (data, cmd, args))
+		if (!SendDataCommand (data, cmd))
 			throw new Exception ("Unable to connect");
 
 		int c = bstream.ReadByte ();
@@ -328,9 +326,9 @@ public class Redis : IDisposable {
 		throw new ResponseException ("Unknown reply on integer request: " + c + s);
 	}	
 
-	int SendExpectInt (string cmd, params object [] args)
+	int SendExpectInt (string cmd)
 	{
-		if (!SendCommand (cmd, args))
+		if (!SendCommand (cmd))
 			throw new Exception ("Unable to connect");
 
 		int c = bstream.ReadByte ();
@@ -349,9 +347,9 @@ public class Redis : IDisposable {
 		throw new ResponseException ("Unknown reply on integer request: " + c + s);
 	}	
 
-	string SendExpectString (string cmd, params object [] args)
+	string SendExpectString (string cmd)
 	{
-		if (!SendCommand (cmd, args))
+		if (!SendCommand (cmd))
 			throw new Exception ("Unable to connect");
 
 		int c = bstream.ReadByte ();
@@ -371,17 +369,17 @@ public class Redis : IDisposable {
 	//
 	// This one does not throw errors
 	//
-	string SendGetString (string cmd, params object [] args)
+	string SendGetString (string cmd)
 	{
-		if (!SendCommand (cmd, args))
+		if (!SendCommand (cmd))
 			throw new Exception ("Unable to connect");
 
 		return ReadLine ();
 	}	
 	
-	byte [] SendExpectData (byte[] data, string cmd, params object [] args)
+	byte [] SendExpectData (byte[] data, string cmd)
 	{
-		if (!SendDataCommand (data, cmd, args))
+		if (!SendDataCommand (data, cmd))
 			throw new Exception ("Unable to connect");
 
 		return ReadData ();
@@ -390,7 +388,7 @@ public class Redis : IDisposable {
 	byte [] ReadData ()
 	{
 		string r = ReadLine ();
-		Log ("R: {0}", r);
+		Log ("R: " + r);
 		if (r.Length == 0)
 			throw new ResponseException ("Zero length respose");
 		
@@ -619,9 +617,9 @@ public class Redis : IDisposable {
 	}
 
 
-	public byte[][] SendDataCommandExpectMultiBulkReply(byte[] data, string command, params object[] args)
+	public byte[][] SendDataCommandExpectMultiBulkReply(byte[] data, string command)
 	{
-		if (!SendDataCommand(data, command, args))
+		if (!SendDataCommand(data, command))
 			throw new Exception("Unable to connect");
 		int c = bstream.ReadByte();
 		if (c == -1)
