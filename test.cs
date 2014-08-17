@@ -25,20 +25,20 @@ class Test {
 		assert ((i = r.Keys.Length) == 0, "there should be no keys but there were {0}", i);
 		r.Set ("foo", "bar");
 		assert ((i = r.Keys.Length) == 1, "there should be one key but there were {0}", i);
-		r.Set ("foo b‰r", "b‰r foo");
+		r.Set ("foo b√§r", "b√§r foo");
 		assert ((i = r.Keys.Length) == 2, "there should be two keys but there were {0}", i);
 		
 		assert (r.TypeOf ("foo") == Redis.KeyType.String, "type is not string");
 		r.Set ("bar", "foo");
 
-		byte [][] arr = r.MGet ("foo", "bar", "foo b‰r");
+		byte [][] arr = r.MGet ("foo", "bar", "foo b√§r");
 		assert (arr.Length == 3, "expected 3 values");
 		assert ((s = Encoding.UTF8.GetString (arr [0])) == "bar",
 			"expected \"foo\" to be \"bar\", got \"{0}\"", s);
 		assert ((s = Encoding.UTF8.GetString (arr [1])) == "foo",
 			"expected \"bar\" to be \"foo\", got \"{0}\"", s);
-		assert ((s = Encoding.UTF8.GetString (arr [2])) == "b‰r foo",
-			"expected \"foo b‰r\" to be \"b‰r foo\", got \"{0}\"", s);
+		assert ((s = Encoding.UTF8.GetString (arr [2])) == "b√§r foo",
+			"expected \"foo b√§r\" to be \"b√§r foo\", got \"{0}\"", s);
 		
 		r ["one"] = "world";
 		assert (r.GetSet ("one", "newvalue") == "world", "GetSet failed");
