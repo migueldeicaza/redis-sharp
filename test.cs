@@ -65,13 +65,11 @@ class Test {
 			Console.WriteLine ("{0} -> {1}", k, info [k]);
 		}
 
-		var dict = new Dictionary<string, byte[]>();
-		dict ["hello"] = Encoding.UTF8.GetBytes ("world");
-		dict ["goodbye"] = Encoding.UTF8.GetBytes ("my dear");
-		dict ["schön"] = Encoding.UTF8.GetBytes("grün");
-		
+		var dict = new Dictionary<string,string> ();
+		dict ["hello"] = "world";
+		dict ["goodbye"] = "my dear";
+		dict ["schön"] = "grün";
 		r.Set (dict);
-
 		assert ((s = r.GetString("hello")) == "world", "got \"{0}\"", s);
 		assert ((s = r.GetString("goodbye")) == "my dear", "got \"{0}\"", s);
 		assert ((s = r.GetString("schön")) == "grün", "got \"{0}\"", s);
@@ -119,11 +117,12 @@ class Test {
 		assert (null != itm, "GetRandomMemberOfSet should have returned an item");
 		assert (r.MoveMemberToSet("FOO","BAR", itm), "data within itm should have been moved to set BAR");
 
-		r.FlushDb();
-
+		r.FlushDb ();
 		assert ((i = r.Keys.Length) == 0, "there should be no keys but there were {0}", i);
 
-		Console.WriteLine("\nPassed tests: {0}\nFailed tests: {1}", nPassed, nFailed);
+		r.Dispose ();
+
+		Console.WriteLine ("\nPassed tests: {0}\nFailed tests: {1}", nPassed, nFailed);
 	}
 
 	static void assert (bool condition, string message, params object [] args)

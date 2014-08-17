@@ -405,7 +405,7 @@ public class Redis : IDisposable {
 		
 		char c = s [0];
 		if (c == '-')
-			throw new ResponseException (s.StartsWith ("-ERR") ? s.Substring (5) : s.Substring (1));
+			throw new ResponseException (s.StartsWith ("-ERR ") ? s.Substring (5) : s.Substring (1));
 
 		if (c == '$'){
 			if (s == "$-1")
@@ -563,7 +563,19 @@ public class Redis : IDisposable {
 
 	public void Shutdown ()
 	{
-		SendExpectSuccess (ToRESP("SHUTDOWN"));
+		SendCommand (ToRESP("SHUTDOWN"));
+		try {
+			// the server may return an error
+			string s = ReadLine ();
+			Log ("S", s);
+			if (s.Length == 0)
+				throw new ResponseException ("Zero length respose");
+			throw new ResponseException (s.StartsWith ("-ERR ") ? s.Substring (5) : s.Substring (1));
+		} catch (IOException) {
+			// this is the expected good result
+			socket.Close ();
+			socket = null;
+		}
 	}
 
 	public void FlushAll ()
@@ -876,6 +888,7 @@ public class Redis : IDisposable {
 	{
 		if (disposing){
 			SendCommand ("QUIT\r\n");
+			ExpectSuccess ();
 			socket.Close ();
 			socket = null;
 		}
