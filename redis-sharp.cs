@@ -180,9 +180,30 @@ public class Redis : IDisposable {
 		return Encoding.UTF8.GetString (Get (key));
 	}
 
-	public byte[][] Sort (SortOptions options)
+	public byte [][] Sort (SortOptions options)
 	{
-		return SendCommandExpectMultiBulkReply(options.ToCommand());
+		return Sort (options.Key, options.StoreInKey, options.ToArgs());
+	}
+
+	public byte [][] Sort (string key, string destination, params object [] options)
+	{
+		if (key == null)
+			throw new ArgumentNullException ("key");
+
+		int offset = string.IsNullOrEmpty (destination) ? 1 : 3;
+		object [] args = new object [offset + options.Length];
+
+		args [0] = key;
+		Array.Copy (options, 0, args, offset, options.Length);
+		if (offset == 1) {
+			return SendExpectDataArray ("SORT", args);
+		}
+		else {
+			args [1] = "STORE";
+			args [2] = destination;
+			int n = SendExpectInt ("SORT", args);
+			return new byte [n][];
+		}
 	}
 	
 	public byte [] GetSet (string key, byte [] value)
@@ -452,7 +473,7 @@ public class Redis : IDisposable {
 			throw new ResponseException ("Invalid length");
 		}
 
-		/* don't treat arrays here because only one element works -- use MultiBulkReply!
+		/* don't treat arrays here because only one element works -- use DataArray!
 		//returns the number of matches
 		if (c == '*') {
 			int n;
@@ -643,28 +664,34 @@ public class Redis : IDisposable {
 	public string [] GetKeys (string pattern)
 	{
 		if (pattern == null)
-			throw new ArgumentNullException ("key");
-		byte [][] reply = SendCommandExpectMultiBulkReply ("KEYS", pattern);
+			throw new ArgumentNullException ("pattern");
+
+		return SendExpectStringArray ("KEYS", pattern);
+	}
+
+	public byte [][] MGet (params string [] keys)
+	{
+		if (keys == null)
+			throw new ArgumentNullException ("keys");
+		if (keys.Length == 0)
+			throw new ArgumentException ("keys");
+		
+		return SendExpectDataArray ("MGET", keys);
+	}
+
+
+	public string [] SendExpectStringArray (string cmd, params object [] args)
+	{
+		byte [][] reply = SendExpectDataArray (cmd, args);
 		string [] keys = new string [reply.Length];
 		for (int i = 0; i < reply.Length; i++)
 			keys[i] = Encoding.UTF8.GetString (reply[i]);
 		return keys;
 	}
 
-	public byte [][] MGet (params string [] keys)
+	public byte[][] SendExpectDataArray (string cmd, params object [] args)
 	{
-		if (keys == null)
-			throw new ArgumentNullException ("key1");
-		if (keys.Length == 0)
-			throw new ArgumentException ("keys");
-		
-		return SendCommandExpectMultiBulkReply ("MGET", keys);
-	}
-
-
-	public byte[][] SendCommandExpectMultiBulkReply(string command, params object [] args)
-	{
-		if (!SendCommand (command, args))
+		if (!SendCommand (cmd, args))
 			throw new Exception("Unable to connect");
 		int c = bstream.ReadByte();
 		if (c == -1)
@@ -691,7 +718,7 @@ public class Redis : IDisposable {
 	#region List commands
 	public byte[][] ListRange(string key, int start, int end)
 	{
-		return SendCommandExpectMultiBulkReply ("LRANGE", key, start, end);
+		return SendExpectDataArray ("LRANGE", key, start, end);
 	}
 
 	public void LeftPush(string key, string value)
@@ -768,7 +795,7 @@ public class Redis : IDisposable {
 	
 	public byte[][] GetMembersOfSet (string key)
 	{
-		return SendCommandExpectMultiBulkReply ("SMEMBERS", key);
+		return SendExpectDataArray ("SMEMBERS", key);
 	}
 	
 	public byte[] GetRandomMemberOfSet (string key)
@@ -796,7 +823,7 @@ public class Redis : IDisposable {
 		if (keys == null)
 			throw new ArgumentNullException();
 		
-		return SendCommandExpectMultiBulkReply ("SUNION", keys);
+		return SendExpectDataArray ("SUNION", keys);
 		
 	}
 	
@@ -821,7 +848,7 @@ public class Redis : IDisposable {
 		if (keys == null)
 			throw new ArgumentNullException();
 		
-		return SendCommandExpectMultiBulkReply ("SINTER", keys);
+		return SendExpectDataArray ("SINTER", keys);
 	}
 	
 	public void StoreIntersectionOfSets (params string[] keys)
@@ -834,7 +861,7 @@ public class Redis : IDisposable {
 		if (keys == null)
 			throw new ArgumentNullException();
 		
-		return SendCommandExpectMultiBulkReply ("SDIFF", keys);
+		return SendExpectDataArray ("SDIFF", keys);
 	}
 	
 	public void StoreDifferenceOfSets (params string[] keys)
@@ -880,19 +907,25 @@ public class SortOptions {
 	public string StoreInKey { get; set; }
 	public string Get { get; set; }
 	
-	public string ToCommand()
+	public object [] ToArgs ()
 	{
-		string command = "SORT " + this.Key;
-		if (LowerLimit != 0 || UpperLimit != 0)
-			command += " LIMIT " + LowerLimit + " " + UpperLimit;
+		System.Collections.ArrayList args = new System.Collections.ArrayList();
+
+		if (LowerLimit != 0 || UpperLimit != 0) {
+			args.Add ("LIMIT");
+			args.Add (LowerLimit);
+			args.Add (UpperLimit);
+		}
 		if (Lexographically)
-			command += " ALPHA";
-		if (!string.IsNullOrEmpty (By))
-			command += " BY " + By;
-		if (!string.IsNullOrEmpty (Get))
-			command += " GET " + Get;
-		if (!string.IsNullOrEmpty (StoreInKey))
-			command += " STORE " + StoreInKey;
-		return command;
+			args.Add("ALPHA");
+		if (!string.IsNullOrEmpty (By)) {
+			args.Add("BY");
+			args.Add(By);
+		}
+		if (!string.IsNullOrEmpty (Get)) {
+			args.Add("GET");
+			args.Add(Get);
+		}
+		return args.ToArray ();
 	}
 }

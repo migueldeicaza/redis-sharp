@@ -86,7 +86,14 @@ class Test {
 			Console.WriteLine("error: Received {0} and should have been 'avalue'", value);
 		if (r.ListLength("alist") != 1)
 			Console.WriteLine("error: List should have one element after pop");
-		r.RightPush("alist", "yet another value");
+		r.LeftPush("alist", "yet another value");
+		SortOptions so = new SortOptions();
+		so.Key = "alist";
+		so.Lexographically = true;
+		assert ((s = Encoding.UTF8.GetString(r.Sort (so) [0])) == "another value",
+			"expected Sort result \"another value\", got \"" + s + "\"");
+		assert ((i = r.Sort ("alist", "alist", new object [] {"ALPHA"}).Length) == 2,
+			"expected Sort result 2, got {0}", i);
 		byte[][] values = r.ListRange("alist", 0, 1);
 		assert (Encoding.UTF8.GetString(values[0]).Equals("another value"),
 			"range did not return the right values");
@@ -124,7 +131,7 @@ class Test {
 
 		Console.WriteLine ("\nPassed tests: {0}", nPassed);
 		if (nFailed > 0)
-			Console.WriteLine ("\nFailed tests: {0}", nFailed);
+			Console.WriteLine ("Failed tests: {0}", nFailed);
 	}
 
 	static void assert (bool condition, string message, params object [] args)
@@ -136,7 +143,7 @@ class Test {
 		else
 		{
 			nFailed ++;
-			Console.Error.WriteLine("error: " + message, args);
+			Console.Error.WriteLine("Failed: " + message, args);
 		}
 	}
 }
