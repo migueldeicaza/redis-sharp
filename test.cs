@@ -10,8 +10,8 @@ class Test {
 	static void Main (string[] args)
 	{
 		Redis r;
-                string s;
-                int i;
+		string s;
+		int i;
 
 		if (args.Length >= 2)
 			r = new Redis(args[0], Convert.ToInt16(args[1]));
@@ -20,7 +20,7 @@ class Test {
 		else
 			r = new Redis();
 
-		r.Set("foo", "bar");
+		r.Set ("foo", "bar");
 		r.FlushAll();
 		assert ((i = r.Keys.Length) == 0, "there should be no keys but there were {0}", i);
 		r.Set ("foo", "bar");
@@ -122,7 +122,9 @@ class Test {
 
 		r.Dispose ();
 
-		Console.WriteLine ("\nPassed tests: {0}\nFailed tests: {1}", nPassed, nFailed);
+		Console.WriteLine ("\nPassed tests: {0}", nPassed);
+		if (nFailed > 0)
+			Console.WriteLine ("\nFailed tests: {0}", nFailed);
 	}
 
 	static void assert (bool condition, string message, params object [] args)
