@@ -14,16 +14,15 @@ class Test {
 	static void MessageReceived (object sender, RedisSubEventArgs e)
 	{
 		nReceived ++;
-		string kind = e.ToString();
-		Match m = Regex.Match(kind, "RedisSharp.(.*)EventArgs");
-		if (m.Success)
-			kind = m.Groups[1].Value.ToLower();
-		if (e is RedisPSubEventArgs)
-			Console.WriteLine ("Received {0} for pattern {1}",
-				 kind, (e as RedisPSubEventArgs).pattern);
-		else
-			Console.WriteLine ("Received {0} on channel {1}",
-				kind, e.channel);
+		switch (e.kind) {
+		case "psubscribe":
+		case "punsubscribe":
+			Console.WriteLine ("Received {0} for pattern {1}", e.kind, e.pattern);
+			break;
+		default:
+			Console.WriteLine ("Received {0} on channel {1}", e.kind, e.channel);
+			break;
+		}
 	}
 
 	static void Main (string[] args)
@@ -148,18 +147,21 @@ class Test {
 
 		// Pub/Sub tests
 		RedisSub rs = new RedisSub(r.Host, r.Port);
-		rs.MessageReceived += new MessageEventHandler (MessageReceived);
-		rs.SubscribeReceived += new SubscribeEventHandler (MessageReceived);
-		rs.UnsubscribeReceived += new UnsubscribeEventHandler (MessageReceived);
-		rs.PMessageReceived += new PMessageEventHandler (MessageReceived);
-		rs.PSubscribeReceived += new PSubscribeEventHandler (MessageReceived);
-		rs.PUnsubscribeReceived += new PUnsubscribeEventHandler (MessageReceived);
+		RedisSubEventHandler eventHandler = new RedisSubEventHandler (MessageReceived);
+		rs.MessageReceived += eventHandler;
+		rs.SubscribeReceived += eventHandler;
+		rs.UnsubscribeReceived += eventHandler;
+		rs.PMessageReceived += eventHandler;
+		rs.PSubscribeReceived += eventHandler;
+		rs.PUnsubscribeReceived += eventHandler;
+
 		rs.Subscribe ("foo");
 		rs.PSubscribe ("fo?");
 		rs.PSubscribe ("f*");
 		r.Publish ("foo", "bar");
 		rs.Unsubscribe("foo");
 		rs.PUnsubscribe(/* all pattern subscriptions */);
+
 		for (i = 0; i < 10 && nReceived < 9; i++)
 			System.Threading.Thread.Sleep(100);
 		assert (nReceived == 9, "received {0} messages, extected 9", nReceived);

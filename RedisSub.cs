@@ -9,51 +9,14 @@ using System.Text;
 using System.Threading;
 
 namespace RedisSharp {
-	public delegate void MessageEventHandler (object sender, MessageEventArgs e);
-	public delegate void SubscribeEventHandler (object sender, SubscribeEventArgs e);
-	public delegate void UnsubscribeEventHandler (object sender, UnsubscribeEventArgs e);
-	public delegate void PMessageEventHandler (object sender, PMessageEventArgs e);
-	public delegate void PSubscribeEventHandler (object sender, PSubscribeEventArgs e);
-	public delegate void PUnsubscribeEventHandler (object sender, PUnsubscribeEventArgs e);
+	public delegate void RedisSubEventHandler (object sender, RedisSubEventArgs e);
 
 	public class RedisSubEventArgs : EventArgs
 	{
+		public string kind;
+		public string pattern;
 		public string channel;
-	}
-
-	public class MessageEventArgs : RedisSubEventArgs
-	{
-		public byte [] message;
-	}
-
-	public class SubscribeEventArgs : RedisSubEventArgs
-	{
-		public int nTotal; // number of channels we are subscribed to
-	}
-
-	public class UnsubscribeEventArgs : RedisSubEventArgs
-	{
-		public int nTotal;
-	}
-
-	public class PMessageEventArgs : MessageEventArgs
-	{
-		public string pattern;
-	}
-
-	public class RedisPSubEventArgs : RedisSubEventArgs
-	{
-		public string pattern;
-	}
-
-	public class PSubscribeEventArgs : RedisPSubEventArgs
-	{
-		public int nTotal;
-	}
-
-	public class PUnsubscribeEventArgs : RedisPSubEventArgs
-	{
-		public int nTotal;
+		public object message;  // a byte [] or an integer depending on kind
 	}
 
 	public class RedisSub : Redis {
@@ -95,44 +58,44 @@ namespace RedisSharp {
 		#endregion
 
 		#region Event handlers
-		public event MessageEventHandler MessageReceived;
-		public event SubscribeEventHandler SubscribeReceived;
-		public event UnsubscribeEventHandler UnsubscribeReceived;
-		public event PMessageEventHandler PMessageReceived;
-		public event PSubscribeEventHandler PSubscribeReceived;
-		public event PUnsubscribeEventHandler PUnsubscribeReceived;
+		public event RedisSubEventHandler MessageReceived;
+		public event RedisSubEventHandler SubscribeReceived;
+		public event RedisSubEventHandler UnsubscribeReceived;
+		public event RedisSubEventHandler PMessageReceived;
+		public event RedisSubEventHandler PSubscribeReceived;
+		public event RedisSubEventHandler PUnsubscribeReceived;
 
-		protected virtual void OnMessageReceived (MessageEventArgs e)
+		protected virtual void OnMessageReceived (RedisSubEventArgs e)
 		{
 			if (MessageReceived != null)
 				MessageReceived (this, e);
 		}
 
-		protected virtual void OnSubscribeReceived (SubscribeEventArgs e)
+		protected virtual void OnSubscribeReceived (RedisSubEventArgs e)
 		{
 			if (SubscribeReceived != null)
 				SubscribeReceived (this, e);
 		}
 
-		protected virtual void OnUnsubscribeReceived (UnsubscribeEventArgs e)
+		protected virtual void OnUnsubscribeReceived (RedisSubEventArgs e)
 		{
 			if (UnsubscribeReceived != null)
 				UnsubscribeReceived (this, e);
 		}
 
-		protected virtual void OnPMessageReceived (PMessageEventArgs e)
+		protected virtual void OnPMessageReceived (RedisSubEventArgs e)
 		{
 			if (PMessageReceived != null)
 				PMessageReceived (this, e);
 		}
 
-		protected virtual void OnPSubscribeReceived (PSubscribeEventArgs e)
+		protected virtual void OnPSubscribeReceived (RedisSubEventArgs e)
 		{
 			if (PSubscribeReceived != null)
 				PSubscribeReceived (this, e);
 		}
 
-		protected virtual void OnPUnsubscribeReceived (PUnsubscribeEventArgs e)
+		protected virtual void OnPUnsubscribeReceived (RedisSubEventArgs e)
 		{
 			if (PUnsubscribeReceived != null)
 				PUnsubscribeReceived (this, e);
@@ -191,58 +154,51 @@ namespace RedisSharp {
 				if (data.Length < 3)
 					throw new Exception ("Received unexpected message with " +
 						data.Length + " elements");
-				string kind = Encoding.UTF8.GetString (data[0]);
-				switch (kind) {
+				RedisSubEventArgs e = new RedisSubEventArgs();
+				e.kind = Encoding.UTF8.GetString (data[0]);
+				switch (e.kind) {
 				case "message":
 					if (MessageReceived == null) break;
-					MessageEventArgs em = new MessageEventArgs();
-					em.channel = Encoding.UTF8.GetString (data [1]);
-					em.message = data [2];
-					OnMessageReceived(em);
+					e.channel = Encoding.UTF8.GetString (data [1]);
+					e.message = data [2];
+					OnMessageReceived(e);
 					break;
 				case "subscribe":
 					if (SubscribeReceived == null) break;
-					SubscribeEventArgs es = new SubscribeEventArgs();
-					es.channel = Encoding.UTF8.GetString (data [1]);
-					es.nTotal = int.Parse(Encoding.UTF8.GetString (data [2]));
-					OnSubscribeReceived(es);
+					e.channel = Encoding.UTF8.GetString (data [1]);
+					e.message = int.Parse(Encoding.UTF8.GetString (data [2]));
+					OnSubscribeReceived(e);
 					break;
 				case "unsubscribe":
 					if (UnsubscribeReceived == null) break;
-					UnsubscribeEventArgs eu = new UnsubscribeEventArgs();
-					eu.channel = Encoding.UTF8.GetString (data [1]);
-					eu.nTotal = int.Parse(Encoding.UTF8.GetString (data [2]));
-					OnUnsubscribeReceived(eu);
+					e.channel = Encoding.UTF8.GetString (data [1]);
+					e.message = int.Parse(Encoding.UTF8.GetString (data [2]));
+					OnUnsubscribeReceived(e);
 					break;
 				case "pmessage":
 					if (PMessageReceived == null) break;
 					if (data.Length != 4)
 						throw new Exception ("Received invalid pmessage with " +
 							data.Length + " elements");
-					PMessageEventArgs ep = new PMessageEventArgs();
-					ep.pattern = Encoding.UTF8.GetString (data [1]);
-					ep.channel = Encoding.UTF8.GetString (data [2]);
-					ep.message = data [3];
-					OnPMessageReceived(ep);
+					e.pattern = Encoding.UTF8.GetString (data [1]);
+					e.channel = Encoding.UTF8.GetString (data [2]);
+					e.message = data [3];
+					OnPMessageReceived(e);
 					break;
 				case "psubscribe":
 					if (PSubscribeReceived == null) break;
-					PSubscribeEventArgs eps = new PSubscribeEventArgs();
-					eps.pattern = Encoding.UTF8.GetString (data [1]);
-					eps.channel = "";
-					eps.nTotal = int.Parse(Encoding.UTF8.GetString (data [2]));
-					OnPSubscribeReceived(eps);
+					e.pattern = Encoding.UTF8.GetString (data [1]);
+					e.message = int.Parse(Encoding.UTF8.GetString (data [2]));
+					OnPSubscribeReceived(e);
 					break;
 				case "punsubscribe":
 					if (PUnsubscribeReceived == null) break;
-					PUnsubscribeEventArgs epu = new PUnsubscribeEventArgs();
-					epu.pattern = Encoding.UTF8.GetString (data [1]);
-					epu.channel = "";
-					epu.nTotal = int.Parse(Encoding.UTF8.GetString (data [2]));
-					OnPUnsubscribeReceived(epu);
+					e.pattern = Encoding.UTF8.GetString (data [1]);
+					e.message = int.Parse(Encoding.UTF8.GetString (data [2]));
+					OnPUnsubscribeReceived(e);
 					break;
 				default:
-					throw new Exception ("Received message of unsupported kind " + kind);
+					throw new Exception ("Received message of unsupported kind " + e.kind);
 				}
 			}
 		}
