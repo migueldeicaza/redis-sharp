@@ -61,9 +61,6 @@ namespace RedisSharp {
 		public event RedisSubEventHandler MessageReceived;
 		public event RedisSubEventHandler SubscribeReceived;
 		public event RedisSubEventHandler UnsubscribeReceived;
-		public event RedisSubEventHandler PMessageReceived;
-		public event RedisSubEventHandler PSubscribeReceived;
-		public event RedisSubEventHandler PUnsubscribeReceived;
 
 		protected virtual void OnMessageReceived (RedisSubEventArgs e)
 		{
@@ -81,24 +78,6 @@ namespace RedisSharp {
 		{
 			if (UnsubscribeReceived != null)
 				UnsubscribeReceived (this, e);
-		}
-
-		protected virtual void OnPMessageReceived (RedisSubEventArgs e)
-		{
-			if (PMessageReceived != null)
-				PMessageReceived (this, e);
-		}
-
-		protected virtual void OnPSubscribeReceived (RedisSubEventArgs e)
-		{
-			if (PSubscribeReceived != null)
-				PSubscribeReceived (this, e);
-		}
-
-		protected virtual void OnPUnsubscribeReceived (RedisSubEventArgs e)
-		{
-			if (PUnsubscribeReceived != null)
-				PUnsubscribeReceived (this, e);
 		}
 		#endregion
 
@@ -176,26 +155,26 @@ namespace RedisSharp {
 					OnUnsubscribeReceived(e);
 					break;
 				case "pmessage":
-					if (PMessageReceived == null) break;
+					if (MessageReceived == null) break;
 					if (data.Length != 4)
 						throw new Exception ("Received invalid pmessage with " +
 							data.Length + " elements");
 					e.pattern = Encoding.UTF8.GetString (data [1]);
 					e.channel = Encoding.UTF8.GetString (data [2]);
 					e.message = data [3];
-					OnPMessageReceived(e);
+					OnMessageReceived(e);
 					break;
 				case "psubscribe":
-					if (PSubscribeReceived == null) break;
+					if (SubscribeReceived == null) break;
 					e.pattern = Encoding.UTF8.GetString (data [1]);
 					e.message = int.Parse(Encoding.UTF8.GetString (data [2]));
-					OnPSubscribeReceived(e);
+					OnSubscribeReceived(e);
 					break;
 				case "punsubscribe":
-					if (PUnsubscribeReceived == null) break;
+					if (UnsubscribeReceived == null) break;
 					e.pattern = Encoding.UTF8.GetString (data [1]);
 					e.message = int.Parse(Encoding.UTF8.GetString (data [2]));
-					OnPUnsubscribeReceived(e);
+					OnUnsubscribeReceived(e);
 					break;
 				default:
 					throw new Exception ("Received message of unsupported kind " + e.kind);

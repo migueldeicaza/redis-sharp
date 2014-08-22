@@ -151,9 +151,6 @@ class Test {
 		rs.MessageReceived += eventHandler;
 		rs.SubscribeReceived += eventHandler;
 		rs.UnsubscribeReceived += eventHandler;
-		rs.PMessageReceived += eventHandler;
-		rs.PSubscribeReceived += eventHandler;
-		rs.PUnsubscribeReceived += eventHandler;
 
 		rs.Subscribe ("foo");
 		rs.PSubscribe ("fo?");
