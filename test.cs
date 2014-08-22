@@ -1,11 +1,30 @@
 using System;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Collections.Generic;
+
+using RedisSharp;
 
 class Test {
 
 	static int nPassed = 0;
 	static int nFailed = 0;
+	static int nReceived = 0;
+
+	static void MessageReceived (object sender, RedisSubEventArgs e)
+	{
+		nReceived ++;
+		string kind = e.ToString();
+		Match m = Regex.Match(kind, "RedisSharp.(.*)EventArgs");
+		if (m.Success)
+			kind = m.Groups[1].Value.ToLower();
+		if (e is RedisPSubEventArgs)
+			Console.WriteLine ("Received {0} for pattern {1}",
+				 kind, (e as RedisPSubEventArgs).pattern);
+		else
+			Console.WriteLine ("Received {0} on channel {1}",
+				kind, e.channel);
+	}
 
 	static void Main (string[] args)
 	{
@@ -127,6 +146,25 @@ class Test {
 		r.FlushDb ();
 		assert ((i = r.Keys.Length) == 0, "there should be no keys but there were {0}", i);
 
+		// Pub/Sub tests
+		RedisSub rs = new RedisSub(r.Host, r.Port);
+		rs.MessageReceived += new MessageEventHandler (MessageReceived);
+		rs.SubscribeReceived += new SubscribeEventHandler (MessageReceived);
+		rs.UnsubscribeReceived += new UnsubscribeEventHandler (MessageReceived);
+		rs.PMessageReceived += new PMessageEventHandler (MessageReceived);
+		rs.PSubscribeReceived += new PSubscribeEventHandler (MessageReceived);
+		rs.PUnsubscribeReceived += new PUnsubscribeEventHandler (MessageReceived);
+		rs.Subscribe ("foo");
+		rs.PSubscribe ("fo?");
+		rs.PSubscribe ("f*");
+		r.Publish ("foo", "bar");
+		rs.Unsubscribe("foo");
+		rs.PUnsubscribe(/* all pattern subscriptions */);
+		for (i = 0; i < 10 && nReceived < 9; i++)
+			System.Threading.Thread.Sleep(100);
+		assert (nReceived == 9, "received {0} messages, extected 9", nReceived);
+
+		rs.Dispose ();
 		r.Dispose ();
 
 		Console.WriteLine ("\nPassed tests: {0}", nPassed);

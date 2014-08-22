@@ -265,7 +265,7 @@ public class Redis : IDisposable {
 
 	byte [] end_data = new byte [] { (byte) '\r', (byte) '\n' };
 
-	bool SendDataCommand (byte [] data, string cmd, params object [] args)
+	protected bool SendDataCommand (byte [] data, string cmd, params object [] args)
 	{
 		string resp = "*" + (1 + args.Length + 1).ToString () + "\r\n";
 		resp += "$" + cmd.Length + "\r\n" + cmd + "\r\n";
@@ -304,7 +304,7 @@ public class Redis : IDisposable {
 		return true;
 	}
 
-	bool SendCommand (string cmd, params object [] args)
+	protected bool SendCommand (string cmd, params object [] args)
 	{
 		if (socket == null)
 			Connect ();
@@ -334,7 +334,7 @@ public class Redis : IDisposable {
 	}
 	
 	[Conditional ("DEBUG")]
-	void Log (string id, string message)
+	protected void Log (string id, string message)
 	{
 		Console.WriteLine(id + ": " + message.Trim().Replace("\r\n", " "));
 	}
@@ -439,7 +439,7 @@ public class Redis : IDisposable {
 		return ReadData ();
 	}
 
-	byte [] ReadData ()
+	protected byte [] ReadData ()
 	{
 		string s = ReadLine ();
 		Log ("S", s);
@@ -471,6 +471,10 @@ public class Redis : IDisposable {
 				return retbuf;
 			}
 			throw new ResponseException ("Invalid length");
+		}
+		else if (c == ':') {
+			// return unparsed integer
+			return Encoding.UTF8.GetBytes(s.Substring(1));
 		}
 
 		/* don't treat arrays here because only one element works -- use DataArray!
@@ -693,6 +697,11 @@ public class Redis : IDisposable {
 	{
 		if (!SendCommand (cmd, args))
 			throw new Exception("Unable to connect");
+		return ReadDataArray();
+	}
+
+	protected byte[][] ReadDataArray ()
+	{
 		int c = bstream.ReadByte();
 		if (c == -1)
 			throw new ResponseException("No more data");
@@ -875,6 +884,23 @@ public class Redis : IDisposable {
 	}
 	#endregion
 
+	#region Pub commands
+	public int Publish (string channel, string message)
+	{
+		return Publish (channel, Encoding.UTF8.GetBytes (message));
+	}
+
+	public int Publish (string channel, byte [] message)
+	{
+		if (channel == null)
+			throw new ArgumentNullException ("channel");
+		if (message == null)
+			throw new ArgumentNullException ("message");
+
+		return SendDataExpectInt (message, "PUBLISH", channel);
+	}
+	#endregion
+
 	public void Dispose ()
 	{
 		Dispose (true);
@@ -889,8 +915,8 @@ public class Redis : IDisposable {
 	protected virtual void Dispose (bool disposing)
 	{
 		if (disposing){
-			SendCommand ("QUIT");
-			ExpectSuccess ();
+			//SendCommand ("QUIT"); // disable temporarily for RedisSub
+			//ExpectSuccess ();     // disable temporarily for RedisSub
 			socket.Close ();
 			socket = null;
 		}
