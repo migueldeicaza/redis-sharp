@@ -1,7 +1,16 @@
 //
-// RedisSub.cs: ECMA CLI Binding for Redis pub/sub
+// RedisComm.cs: ECMA CLI Binding to the Redis key-value storage system
 //
-// Licensed under the same terms of Redis: new BSD license.
+//   Subscriber for pub/sub messaging
+//
+// Authors:
+//   Miguel de Icaza (miguel@gnome.org)
+//   Jonathan R. Steele (jrsteele@gmail.com)
+//   Ruediger Franke (rdgfranke@gmail.com)
+//
+// Copyright 2010 -- 2014 the authors
+//
+// Licensed under the same terms of redis: new BSD license.
 //
 
 using System;
@@ -19,7 +28,7 @@ namespace RedisSharp {
 		public object message;  // a byte [] or an integer depending on kind
 	}
 
-	public class RedisSub : Redis {
+	public class RedisSub : RedisComm {
 		Thread worker = null;
 		bool continueWorking = false;
 

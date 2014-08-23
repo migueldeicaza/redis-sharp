@@ -41,6 +41,7 @@
   <ItemGroup>
     <Compile Include="RedisComm.cs" />
     <Compile Include="RedisSub.cs" />
+    <Compile Include="Redis.cs" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Properties\" />
