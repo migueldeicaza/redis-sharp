@@ -25,7 +25,7 @@ namespace RedisSharp {
 		public string kind;
 		public string pattern;
 		public string channel;
-		public object message;  // a byte [] or an integer depending on kind
+		public object message;  // byte [] or integer depending on kind; or override On...
 	}
 
 	public class RedisSub : RedisComm {
@@ -100,7 +100,7 @@ namespace RedisSharp {
 				// command was sent; make sure we are listening
 				if (!continueWorking)
 				{
-					Log ("C", "start listening");
+					Log ("C", "# start listening");
 					continueWorking = true;
 					worker = new Thread (SubWorker);
 					worker.Start();
@@ -111,7 +111,7 @@ namespace RedisSharp {
 				// send failed; stop listening
 				if (continueWorking)
 				{
-					Log ("C", "stop listening");
+					Log ("C", "# stop listening");
 					continueWorking = false;
 					worker.Join();
 					worker = null;
@@ -125,42 +125,42 @@ namespace RedisSharp {
 		/// </summary>
 		void SubWorker()
 		{
-			byte [][] data = null;
+			object [] data = null;
 			while (continueWorking)
 			{
 				try
 				{
-					data = ReadDataArray ();
+					data = ReadObjectArray ();
 				}
 				catch (Exception ex)
 				{
 					if (continueWorking)
 						throw ex;
-					else
+					else {
+						Log ("C", "# break listening");
 						break;
+					}
 				}
 				if (data.Length < 3)
 					throw new Exception ("Received unexpected message with " +
 						data.Length + " elements");
 				RedisSubEventArgs e = new RedisSubEventArgs();
-				e.kind = Encoding.UTF8.GetString (data[0]);
+				e.message = data [data.Length - 1];
+				e.kind = Encoding.UTF8.GetString (data[0] as byte []);
 				switch (e.kind) {
 				case "message":
 					if (MessageReceived == null) break;
-					e.channel = Encoding.UTF8.GetString (data [1]);
-					e.message = data [2];
+					e.channel = Encoding.UTF8.GetString (data [1] as byte []);
 					OnMessageReceived(e);
 					break;
 				case "subscribe":
 					if (SubscribeReceived == null) break;
-					e.channel = Encoding.UTF8.GetString (data [1]);
-					e.message = int.Parse(Encoding.UTF8.GetString (data [2]));
+					e.channel = Encoding.UTF8.GetString (data [1] as byte []);
 					OnSubscribeReceived(e);
 					break;
 				case "unsubscribe":
 					if (UnsubscribeReceived == null) break;
-					e.channel = Encoding.UTF8.GetString (data [1]);
-					e.message = int.Parse(Encoding.UTF8.GetString (data [2]));
+					e.channel = Encoding.UTF8.GetString (data [1] as byte []);
 					OnUnsubscribeReceived(e);
 					break;
 				case "pmessage":
@@ -168,21 +168,18 @@ namespace RedisSharp {
 					if (data.Length != 4)
 						throw new Exception ("Received invalid pmessage with " +
 							data.Length + " elements");
-					e.pattern = Encoding.UTF8.GetString (data [1]);
-					e.channel = Encoding.UTF8.GetString (data [2]);
-					e.message = data [3];
+					e.pattern = Encoding.UTF8.GetString (data [1] as byte []);
+					e.channel = Encoding.UTF8.GetString (data [2] as byte []);
 					OnMessageReceived(e);
 					break;
 				case "psubscribe":
 					if (SubscribeReceived == null) break;
-					e.pattern = Encoding.UTF8.GetString (data [1]);
-					e.message = int.Parse(Encoding.UTF8.GetString (data [2]));
+					e.pattern = Encoding.UTF8.GetString (data [1] as byte []);
 					OnSubscribeReceived(e);
 					break;
 				case "punsubscribe":
 					if (UnsubscribeReceived == null) break;
-					e.pattern = Encoding.UTF8.GetString (data [1]);
-					e.message = int.Parse(Encoding.UTF8.GetString (data [2]));
+					e.pattern = Encoding.UTF8.GetString (data [1] as byte []);
 					OnUnsubscribeReceived(e);
 					break;
 				default:

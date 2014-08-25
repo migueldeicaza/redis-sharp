@@ -100,23 +100,26 @@ namespace RedisSharp {
 			return sb.ToString ();
 		}
 
-		protected byte [] ReadData ()
+		protected byte [] ReadData (params int [] lookahead)
 		{
+			int c;
+			if (lookahead.Length == 1)
+				c = lookahead [0];
+			else
+				c = bstream.ReadByte ();
+			if (c == -1)
+				throw new ResponseException("No more data");
+
 			string s = ReadLine ();
-			Log ("S", s);
-			if (s.Length == 0)
-				throw new ResponseException ("Zero length respose");
-
-			char c = s [0];
+			Log ("S", (char)c + s);
 			if (c == '-')
-				throw new ResponseException (s.StartsWith ("-ERR ") ? s.Substring (5) : s.Substring (1));
-
+				throw new ResponseException (s.StartsWith ("ERR ") ? s.Substring (4) : s);
 			if (c == '$'){
 				if (s == "$-1")
 					return null;
 				int n;
 
-				if (int.TryParse (s.Substring (1), out n)){
+				if (int.TryParse (s, out n)){
 					byte [] retbuf = new byte [n];
 
 					int bytesRead = 0;
@@ -133,14 +136,11 @@ namespace RedisSharp {
 				}
 				throw new ResponseException ("Invalid length");
 			}
-			else if (c == ':') {
-				// return unparsed integer
-				return Encoding.UTF8.GetBytes(s.Substring(1));
-			}
 
-			throw new ResponseException ("Unexpected reply: " + s);
+			throw new ResponseException ("Unexpected reply: " + (char)c + s);
 		}
 
+		// read array of bulk strings
 		protected byte[][] ReadDataArray ()
 		{
 			int c = bstream.ReadByte();
@@ -162,7 +162,43 @@ namespace RedisSharp {
 					return result;
 				}
 			}
-			throw new ResponseException("Unknown reply on multi-request: " + c + s);
+			throw new ResponseException("Unknown reply on array request: " + c + s);
+		}
+
+		// read array of elements with mixed type (bulk string, integer, nested array)
+		protected object[] ReadObjectArray (params int[] lookahead)
+		{
+			int c;
+			if (lookahead.Length == 1)
+				c = lookahead [0];
+			else
+				c = bstream.ReadByte ();
+			if (c == -1)
+				throw new ResponseException("No more data");
+
+			string s = ReadLine();
+			Log("S", (char)c + s);
+			if (c == '-')
+				throw new ResponseException(s.StartsWith("ERR ") ? s.Substring(4) : s);
+			if (c == '*') {
+				int count;
+				if (int.TryParse (s, out count)) {
+					object [] result = new object [count];
+
+					for (int i = 0; i < count; i++)
+					{
+						int peek = bstream.ReadByte ();
+						if (peek == '$')
+							result[i] = ReadData (peek);
+						else if (peek == ':')
+							result[i] = ReadInt (peek);
+						else /* if (peek == '*') */
+							result[i] = ReadObjectArray (peek);
+					}
+					return result;
+				}
+			}
+			throw new ResponseException("Unknown reply on array request: " + c + s);
 		}
 
 		byte [] end_line = new byte [] { (byte) '\r', (byte) '\n' };
@@ -274,9 +310,13 @@ namespace RedisSharp {
 			ExpectSuccess ();
 		}
 
-		protected int ExpectInt ()
+		protected int ReadInt (params int [] lookahead)
 		{
-			int c = bstream.ReadByte ();
+			int c;
+			if (lookahead.Length == 1)
+				c = lookahead [0];
+			else
+				c = bstream.ReadByte ();
 			if (c == -1)
 				throw new ResponseException ("No more data");
 
@@ -297,7 +337,7 @@ namespace RedisSharp {
 			if (!SendDataCommand (data, cmd, args))
 				throw new Exception ("Unable to connect");
 
-			return ExpectInt();
+			return ReadInt();
 		}
 
 		protected int SendExpectInt (string cmd, params object [] args)
@@ -305,10 +345,10 @@ namespace RedisSharp {
 			if (!SendCommand (cmd, args))
 				throw new Exception ("Unable to connect");
 
-			return ExpectInt();
+			return ReadInt();
 		}
 
-		protected string ExpectString ()
+		protected string ReadString ()
 		{
 			int c = bstream.ReadByte ();
 			if (c == -1)
@@ -321,7 +361,7 @@ namespace RedisSharp {
 			if (c == '+')
 				return s;
 
-			throw new ResponseException ("Unknown reply on integer request: " + c + s);
+			throw new ResponseException ("Unknown reply on string request: " + c + s);
 		}
 
 		protected string SendExpectString (string cmd, params object [] args)
@@ -329,7 +369,7 @@ namespace RedisSharp {
 			if (!SendCommand (cmd, args))
 				throw new Exception ("Unable to connect");
 
-			return ExpectString();
+			return ReadString();
 		}
 
 		//
