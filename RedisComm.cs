@@ -10,7 +10,7 @@
 //
 // Licensed under the same terms of redis: new BSD license.
 //
-#define DEBUG
+//#define DEBUG
 
 using System;
 using System.IO;
