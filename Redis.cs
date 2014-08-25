@@ -230,7 +230,7 @@ namespace RedisSharp {
 		public byte [][] Sort (SortOptions options)
 		{
 			if (options.StoreInKey != null) {
-				int n = SortStore (options.Key, options.StoreInKey, options.ToArgs ());
+				int n = SortStore (options.StoreInKey, options.Key, options.ToArgs ());
 				return new byte [n][];
 			}
 			else {
@@ -247,7 +247,7 @@ namespace RedisSharp {
 			return ReadDataArray ();
 		}
 
-		public int SortStore (string key, string destination, params object [] options)
+		public int SortStore (string destination, string key, params object [] options)
 		{
 			if (key == null)
 				throw new ArgumentNullException ("key");
