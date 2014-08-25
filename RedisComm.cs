@@ -388,10 +388,7 @@ namespace RedisSharp {
 		protected string [] SendExpectStringArray (string cmd, params object [] args)
 		{
 			byte [][] reply = SendExpectDataArray (cmd, args);
-			string [] keys = new string [reply.Length];
-			for (int i = 0; i < reply.Length; i++)
-				keys[i] = Encoding.UTF8.GetString (reply[i]);
-			return keys;
+			return ToStringArray (reply);
 		}
 
 		protected byte [] SendExpectData (string cmd, params object [] args)
@@ -444,5 +441,25 @@ namespace RedisSharp {
 				socket = null;
 			}
 		}
+
+		#region Conversion between text strings and bulk strings
+		public static byte [] ToData (string text)
+		{
+			return Encoding.UTF8.GetBytes (text);
+		}
+
+		public static string ToString (byte [] data)
+		{
+			return Encoding.UTF8.GetString (data);
+		}
+
+		public static string [] ToStringArray (byte [][] dataArray)
+		{
+			string [] result = new string [dataArray.Length];
+			for (int i = 0; i < result.Length; i++)
+				result[i] = Encoding.UTF8.GetString (dataArray[i]);
+			return result;
+		}
+		#endregion
 	}
 }
