@@ -1,5 +1,5 @@
 //
-// RedisComm.cs: ECMA CLI Binding to the Redis key-value storage system
+// RedisSub.cs: ECMA CLI Binding to the Redis key-value storage system
 //
 //   Subscriber for pub/sub messaging
 //
