@@ -128,12 +128,10 @@ namespace RedisSharp {
 			object [] data = null;
 			while (continueWorking)
 			{
-				try
-				{
-					data = ReadObjectArray ();
+				try {
+					data = ReadMixedArray ();
 				}
-				catch (Exception ex)
-				{
+				catch (Exception ex) {
 					if (continueWorking)
 						throw ex;
 					else {

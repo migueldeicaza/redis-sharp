@@ -166,7 +166,7 @@ namespace RedisSharp {
 		}
 
 		// read array of elements with mixed type (bulk string, integer, nested array)
-		protected object[] ReadObjectArray (params int[] lookahead)
+		protected object [] ReadMixedArray (params int[] lookahead)
 		{
 			int c;
 			if (lookahead.Length == 1)
@@ -192,8 +192,10 @@ namespace RedisSharp {
 							result[i] = ReadData (peek);
 						else if (peek == ':')
 							result[i] = ReadInt (peek);
-						else /* if (peek == '*') */
-							result[i] = ReadObjectArray (peek);
+						else if (peek == '*')
+							result[i] = ReadMixedArray (peek);
+						else
+							throw new ResponseException("Unknown array element: " + c + s);
 					}
 					return result;
 				}
