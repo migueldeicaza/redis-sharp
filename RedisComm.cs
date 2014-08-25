@@ -165,10 +165,11 @@ namespace RedisSharp {
 			throw new ResponseException("Unknown reply on multi-request: " + c + s);
 		}
 
-		byte [] end_data = new byte [] { (byte) '\r', (byte) '\n' };
+		byte [] end_line = new byte [] { (byte) '\r', (byte) '\n' };
 
 		protected bool SendDataCommand (byte [] data, string cmd, params object [] args)
 		{
+			MemoryStream ms = new MemoryStream ();
 			string resp = "*" + (1 + args.Length + 1) + "\r\n";
 			resp += "$" + cmd.Length + "\r\n" + cmd + "\r\n";
 			foreach (object arg in args) {
@@ -177,58 +178,58 @@ namespace RedisSharp {
 				resp += "$" + argStrLength + "\r\n" + argStr + "\r\n";
 			}
 			resp +=	"$" + data.Length + "\r\n";
+			byte [] r = Encoding.UTF8.GetBytes (resp);
+			ms.Write (r, 0, r.Length);
+			ms.Write (data, 0, data.Length);
+			ms.Write (end_line, 0, end_line.Length);
 
-			return SendDataRESP (data, resp);
+			Log ("C", resp);
+			return SendRaw (ms.ToArray ());
 		}
 
-		protected void SendTuplesCommand (object [] keys, byte [][] values, string cmd, params object [] args)
+		protected void SendTuplesCommand (object [] ids, byte [][] values, string cmd, params object [] args)
 		{
-			if (keys.Length != values.Length)
-				throw new ArgumentException ("keys and values must have the same size");
+			if (ids.Length != values.Length)
+				throw new ArgumentException ("id's and values must have the same size");
 
-			byte [] nl = Encoding.UTF8.GetBytes ("\r\n");
 			MemoryStream ms = new MemoryStream ();
-
-			for (int i = 0; i < keys.Length; i++) {
-				string keyStr = string.Format (CultureInfo.InvariantCulture, "{0}", keys[i]);
-				byte [] key = Encoding.UTF8.GetBytes (keyStr);
-				byte [] val = values[i];
-				byte [] kLength = Encoding.UTF8.GetBytes ("$" + key.Length + "\r\n");
-				byte [] k = Encoding.UTF8.GetBytes (keys[i] + "\r\n");
-				byte [] vLength = Encoding.UTF8.GetBytes ("$" + val.Length + "\r\n");
-				ms.Write (kLength, 0, kLength.Length);
-				ms.Write (k, 0, k.Length);
-				ms.Write (vLength, 0, vLength.Length);
-				ms.Write (val, 0, val.Length);
-				ms.Write (nl, 0, nl.Length);
-			}
-
-			string resp = "*" + (1 + keys.Length * 2 + args.Length) + "\r\n";
+			string resp = "*" + (1 + 2 * ids.Length + args.Length) + "\r\n";
 			resp += "$" + cmd.Length + "\r\n" + cmd + "\r\n";
 			foreach (object arg in args) {
 				string argStr = string.Format (CultureInfo.InvariantCulture, "{0}", arg);
 				int argStrLength = Encoding.UTF8.GetByteCount(argStr);
 				resp += "$" + argStrLength + "\r\n" + argStr + "\r\n";
 			}
+			byte [] r = Encoding.UTF8.GetBytes (resp);
+			ms.Write (r, 0, r.Length);
 
-			SendDataRESP (ms.ToArray (), resp);
+			for (int i = 0; i < ids.Length; i++) {
+				string idStr = string.Format (CultureInfo.InvariantCulture, "{0}", ids[i]);
+				byte [] id = Encoding.UTF8.GetBytes (idStr);
+				byte [] val = values[i];
+				byte [] idLength = Encoding.UTF8.GetBytes ("$" + id.Length + "\r\n");
+				byte [] valLength = Encoding.UTF8.GetBytes ("$" + val.Length + "\r\n");
+				ms.Write (idLength, 0, idLength.Length);
+				ms.Write (id, 0, id.Length);
+				ms.Write (end_line, 0, end_line.Length);
+				ms.Write (valLength, 0, valLength.Length);
+				ms.Write (val, 0, val.Length);
+				ms.Write (end_line, 0, end_line.Length);
+			}
+
+			Log ("C", resp);
+			SendRaw (ms.ToArray ());
 		}
 
-		private bool SendDataRESP (byte [] data, string resp)
+		private bool SendRaw (byte [] r)
 		{
 			if (socket == null)
 				Connect ();
 			if (socket == null)
 				return false;
 
-			byte [] r = Encoding.UTF8.GetBytes (resp);
 			try {
-				Log ("C", resp);
 				socket.Send (r);
-				if (data != null){
-					socket.Send (data);
-					socket.Send (end_data);
-				}
 			} catch (SocketException){
 				// timeout;
 				socket.Close ();
@@ -241,11 +242,6 @@ namespace RedisSharp {
 
 		protected bool SendCommand (string cmd, params object [] args)
 		{
-			if (socket == null)
-				Connect ();
-			if (socket == null)
-				return false;
-
 			string resp = "*" + (1 + args.Length) + "\r\n";
 			resp += "$" + cmd.Length + "\r\n" + cmd + "\r\n";
 			foreach (object arg in args) {
@@ -254,18 +250,8 @@ namespace RedisSharp {
 				resp += "$" + argStrLength + "\r\n" + argStr + "\r\n";
 			}
 
-			byte [] r = Encoding.UTF8.GetBytes (resp);
-			try {
-				Log ("C", resp);
-				socket.Send (r);
-			} catch (SocketException){
-				// timeout;
-				socket.Close ();
-				socket = null;
-
-				return false;
-			}
-			return true;
+			Log ("C", resp);
+			return SendRaw (Encoding.UTF8.GetBytes (resp));
 		}
 
 		protected void ExpectSuccess ()
