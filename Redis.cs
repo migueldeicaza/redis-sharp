@@ -214,6 +214,19 @@ namespace RedisSharp {
 			return SendExpectStringArray ("KEYS", pattern);
 		}
 
+		public string [] Scan (ref int cursor, params object [] args)
+		{
+			SendCommand ("SCAN", PrependArgs (args, cursor));
+			object [] result = ReadMixedArray ();
+			cursor = int.Parse (ToString (result [0] as byte []));
+			object [] dataArray = result [1] as object [];
+
+			string [] keys = new string [dataArray.Length];
+			for (int i = 0; i < keys.Length; i++)
+				keys[i] = ToString (dataArray [i] as byte []);
+			return keys;
+		}
+
 		public byte [][] Sort (SortOptions options)
 		{
 			if (options.StoreInKey != null) {
@@ -230,11 +243,8 @@ namespace RedisSharp {
 			if (key == null)
 				throw new ArgumentNullException ("key");
 
-			object [] args = new object [1 + options.Length];
-			args [0] = key;
-			Array.Copy (options, 0, args, 1, options.Length);
-
-			return SendExpectDataArray ("SORT", args);
+			SendCommand ("SORT", PrependArgs (options, key));
+			return ReadDataArray ();
 		}
 
 		public int SortStore (string key, string destination, params object [] options)
@@ -244,13 +254,8 @@ namespace RedisSharp {
 			if (destination == null)
 				throw new ArgumentNullException ("destination");
 
-			object [] args = new object [3 + options.Length];
-			args [0] = key;
-			args [1] = "STORE";
-			args [2] = destination;
-			Array.Copy (options, 0, args, 3, options.Length);
-
-			return SendExpectInt ("SORT", args);
+			SendCommand ("SORT", PrependArgs (options, key, "STORE", destination));
+			return ReadInt ();
 		}
 
 		public bool ContainsKey (string key)

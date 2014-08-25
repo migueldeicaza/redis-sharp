@@ -163,6 +163,27 @@ class Test {
 		assert (nReceived == 9, "received {0} messages, extected 9", nReceived);
 
 		rs.Dispose ();
+
+		// scan test
+		Match m = Regex.Match (info["redis_version"], "([0-9]+)\\.([0-9]+)\\.([0-9]+)");
+		int [] version = new int [3];
+		if (m.Success)
+			for (i = 0; i < 3; i++)
+				version[i] = int.Parse (m.Groups[i+1].Value);
+		if (version[0] >= 2 && version[1] >= 8) {
+			dict = new Dictionary<string,string> ();
+			for (i = 0; i < 20; i++)
+				dict ["key:" + i] = "val" + i;
+			r.Set (dict);
+			assert ((i = r.DbSize) == 20, "expect 20 keys but there were {0}", i);
+			int cursor = 0;
+			do {
+				string [] keys = r.Scan (ref cursor, "MATCH", "key:*");
+				r.Remove (keys);
+			} while (cursor > 0);
+			assert ((i = r.DbSize) == 0, "expect 0 keys but there were {0}", i);
+		}
+
 		r.Dispose ();
 
 		Console.WriteLine ("\nPassed tests: {0}", nPassed);

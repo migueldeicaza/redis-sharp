@@ -461,5 +461,18 @@ namespace RedisSharp {
 			return result;
 		}
 		#endregion
+
+		// prepend additional arguments to args array
+		public static object [] PrependArgs (object [] args, params object [] preArgs)
+		{
+			if (args.Length == 0)
+				return preArgs;
+			else {
+				object [] newArgs = new object [preArgs.Length + args.Length];
+				Array.Copy (preArgs, 0, newArgs, 0, preArgs.Length);
+				Array.Copy (args, 0, newArgs, preArgs.Length, args.Length);
+				return newArgs;
+			}
+		}
 	}
 }
