@@ -1,7 +1,7 @@
 //
-// RedisComm.cs: ECMA CLI Binding to the Redis key-value storage system
+// RedisClient.cs: ECMA CLI Binding to the Redis key-value storage system
 //
-//   Communication and protocol handling
+//   Communication and protocol handling for a Redis client
 //
 // Authors:
 //   Miguel de Icaza (miguel@gnome.org)
@@ -20,7 +20,7 @@ using System.Globalization;
 using System.Diagnostics;
 
 namespace RedisSharp {
-	public class RedisComm : IDisposable {
+	public class RedisClient : IDisposable {
 		Socket socket;
 		BufferedStream bstream;
 
@@ -37,7 +37,7 @@ namespace RedisSharp {
 			public string Code { get; private set; }
 		}
 
-		public RedisComm (string host, int port)
+		public RedisClient (string host, int port)
 		{
 			if (host == null)
 				throw new ArgumentNullException ("host");
@@ -47,11 +47,11 @@ namespace RedisSharp {
 			SendTimeout = -1;
 		}
 
-		public RedisComm (string host) : this (host, 6379)
+		public RedisClient (string host) : this (host, 6379)
 		{
 		}
 
-		public RedisComm () : this ("localhost", 6379)
+		public RedisClient () : this ("localhost", 6379)
 		{
 		}
 
@@ -89,7 +89,7 @@ namespace RedisSharp {
 		{
 			StringBuilder sb = new StringBuilder ();
 			int c;
-			
+
 			while ((c = bstream.ReadByte ()) != -1){
 				if (c == '\r')
 					continue;
@@ -429,7 +429,7 @@ namespace RedisSharp {
 			GC.SuppressFinalize (this);
 		}
 
-		~RedisComm ()
+		~RedisClient ()
 		{
 			Dispose (false);
 		}

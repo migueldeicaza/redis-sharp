@@ -28,7 +28,7 @@ namespace RedisSharp {
 		public object message;  // byte [] or integer depending on kind; or override On...
 	}
 
-	public class RedisSub : RedisComm {
+	public class RedisSub : RedisClient {
 		Thread worker = null;
 		bool continueWorking = false;
 

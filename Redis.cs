@@ -17,7 +17,7 @@ using System.Text;
 using System.Linq;
 
 namespace RedisSharp {
-	public class Redis : RedisComm {
+	public class Redis : RedisClient {
 
 		public Redis (string host, int port) : base (host, port)
 		{

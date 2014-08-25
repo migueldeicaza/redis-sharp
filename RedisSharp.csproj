@@ -39,7 +39,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="RedisComm.cs" />
+    <Compile Include="RedisClient.cs" />
     <Compile Include="RedisSub.cs" />
     <Compile Include="Redis.cs" />
   </ItemGroup>
