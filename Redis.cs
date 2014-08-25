@@ -31,6 +31,7 @@ namespace RedisSharp {
 		{
 		}
 
+		#region Connection commands
 		int db;
 		public int Db {
 			get {
@@ -42,7 +43,9 @@ namespace RedisSharp {
 				SendExpectSuccess ("SELECT", db);
 			}
 		}
+		#endregion
 
+		#region String commands
 		public string this [string key] {
 			get { return GetString (key); }
 			set { Set (key, value); }
@@ -132,6 +135,85 @@ namespace RedisSharp {
 			return Encoding.UTF8.GetString (Get (key));
 		}
 
+		public byte [] GetSet (string key, byte [] value)
+		{
+			if (key == null)
+				throw new ArgumentNullException ("key");
+			if (value == null)
+				throw new ArgumentNullException ("value");
+
+			if (value.Length > 1073741824)
+				throw new ArgumentException ("value exceeds 1G", "value");
+
+			if (!SendDataCommand (value, "GETSET", key))
+				throw new Exception ("Unable to connect");
+
+			return ReadData ();
+		}
+
+		public string GetSet (string key, string value)
+		{
+			if (key == null)
+				throw new ArgumentNullException ("key");
+			if (value == null)
+				throw new ArgumentNullException ("value");
+			return Encoding.UTF8.GetString (GetSet (key, Encoding.UTF8.GetBytes (value)));
+		}
+
+		public byte [][] MGet (params string [] keys)
+		{
+			if (keys == null)
+				throw new ArgumentNullException ("keys");
+			if (keys.Length == 0)
+				throw new ArgumentException ("keys");
+
+			return SendExpectDataArray ("MGET", keys);
+		}
+
+		public int Increment (string key)
+		{
+			if (key == null)
+				throw new ArgumentNullException ("key");
+			return SendExpectInt ("INCR", key);
+		}
+
+		public int Increment (string key, int count)
+		{
+			if (key == null)
+				throw new ArgumentNullException ("key");
+			return SendExpectInt ("INCRBY", key, count);
+		}
+
+		public int Decrement (string key)
+		{
+			if (key == null)
+				throw new ArgumentNullException ("key");
+			return SendExpectInt ("DECR", key);
+		}
+
+		public int Decrement (string key, int count)
+		{
+			if (key == null)
+				throw new ArgumentNullException ("key");
+			return SendExpectInt ("DECRBY", key, count);
+		}
+		#endregion
+
+		#region Key commands
+		public string [] Keys {
+			get {
+				return GetKeys("*");
+			}
+		}
+
+		public string [] GetKeys (string pattern)
+		{
+			if (pattern == null)
+				throw new ArgumentNullException ("pattern");
+
+			return SendExpectStringArray ("KEYS", pattern);
+		}
+
 		public byte [][] Sort (SortOptions options)
 		{
 			if (options.StoreInKey != null) {
@@ -171,30 +253,6 @@ namespace RedisSharp {
 			return SendExpectInt ("SORT", args);
 		}
 
-		public byte [] GetSet (string key, byte [] value)
-		{
-			if (key == null)
-				throw new ArgumentNullException ("key");
-			if (value == null)
-				throw new ArgumentNullException ("value");
-
-			if (value.Length > 1073741824)
-				throw new ArgumentException ("value exceeds 1G", "value");
-
-			if (!SendDataCommand (value, "GETSET", key))
-				throw new Exception ("Unable to connect");
-
-			return ReadData ();
-		}
-
-		public string GetSet (string key, string value)
-		{
-			if (key == null)
-				throw new ArgumentNullException ("key");
-			if (value == null)
-				throw new ArgumentNullException ("value");
-			return Encoding.UTF8.GetString (GetSet (key, Encoding.UTF8.GetBytes (value)));
-		}
 		public bool ContainsKey (string key)
 		{
 			if (key == null)
@@ -214,34 +272,6 @@ namespace RedisSharp {
 			if (args == null)
 				throw new ArgumentNullException ("args");
 			return SendExpectInt ("DEL", args);
-		}
-
-		public int Increment (string key)
-		{
-			if (key == null)
-				throw new ArgumentNullException ("key");
-			return SendExpectInt ("INCR", key);
-		}
-
-		public int Increment (string key, int count)
-		{
-			if (key == null)
-				throw new ArgumentNullException ("key");
-			return SendExpectInt ("INCRBY", key, count);
-		}
-
-		public int Decrement (string key)
-		{
-			if (key == null)
-				throw new ArgumentNullException ("key");
-			return SendExpectInt ("DECR", key);
-		}
-
-		public int Decrement (string key, int count)
-		{
-			if (key == null)
-				throw new ArgumentNullException ("key");
-			return SendExpectInt ("DECRBY", key, count);
 		}
 
 		public KeyType TypeOf (string key)
@@ -295,7 +325,9 @@ namespace RedisSharp {
 				throw new ArgumentNullException ("key");
 			return SendExpectInt ("TTL", key);
 		}
-		
+		#endregion
+
+		#region Server commands
 		public int DbSize {
 			get {
 				return SendExpectInt ("DBSIZE");
@@ -345,47 +377,7 @@ namespace RedisSharp {
 			}
 			return dict;
 		}
-
-		public string [] Keys {
-			get {
-				return GetKeys("*");
-			}
-		}
-
-		public string [] GetKeys (string pattern)
-		{
-			if (pattern == null)
-				throw new ArgumentNullException ("pattern");
-
-			return SendExpectStringArray ("KEYS", pattern);
-		}
-
-		public byte [][] MGet (params string [] keys)
-		{
-			if (keys == null)
-				throw new ArgumentNullException ("keys");
-			if (keys.Length == 0)
-				throw new ArgumentException ("keys");
-
-			return SendExpectDataArray ("MGET", keys);
-		}
-
-
-		public string [] SendExpectStringArray (string cmd, params object [] args)
-		{
-			byte [][] reply = SendExpectDataArray (cmd, args);
-			string [] keys = new string [reply.Length];
-			for (int i = 0; i < reply.Length; i++)
-				keys[i] = Encoding.UTF8.GetString (reply[i]);
-			return keys;
-		}
-
-		public byte[][] SendExpectDataArray (string cmd, params object [] args)
-		{
-			if (!SendCommand (cmd, args))
-				throw new Exception("Unable to connect");
-			return ReadDataArray();
-		}
+		#endregion
 
 		#region List commands
 		public byte[][] ListRange(string key, int start, int end)

@@ -385,12 +385,28 @@ namespace RedisSharp {
 			return ReadLine ();
 		}
 
+		protected string [] SendExpectStringArray (string cmd, params object [] args)
+		{
+			byte [][] reply = SendExpectDataArray (cmd, args);
+			string [] keys = new string [reply.Length];
+			for (int i = 0; i < reply.Length; i++)
+				keys[i] = Encoding.UTF8.GetString (reply[i]);
+			return keys;
+		}
+
 		protected byte [] SendExpectData (string cmd, params object [] args)
 		{
 			if (!SendCommand (cmd, args))
 				throw new Exception ("Unable to connect");
 
 			return ReadData ();
+		}
+
+		protected byte[][] SendExpectDataArray (string cmd, params object [] args)
+		{
+			if (!SendCommand (cmd, args))
+				throw new Exception("Unable to connect");
+			return ReadDataArray();
 		}
 
 		public void Shutdown ()
