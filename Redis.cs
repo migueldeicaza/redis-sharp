@@ -134,28 +134,41 @@ namespace RedisSharp {
 
 		public byte [][] Sort (SortOptions options)
 		{
-			return Sort (options.Key, options.StoreInKey, options.ToArgs());
+			if (options.StoreInKey != null) {
+				int n = SortStore (options.Key, options.StoreInKey, options.ToArgs ());
+				return new byte [n][];
+			}
+			else {
+				return Sort (options.Key, options.ToArgs ());
+			}
 		}
 
-		public byte [][] Sort (string key, string destination, params object [] options)
+		public byte [][] Sort (string key, params object [] options)
 		{
 			if (key == null)
 				throw new ArgumentNullException ("key");
 
-			int offset = string.IsNullOrEmpty (destination) ? 1 : 3;
-			object [] args = new object [offset + options.Length];
-
+			object [] args = new object [1 + options.Length];
 			args [0] = key;
-			Array.Copy (options, 0, args, offset, options.Length);
-			if (offset == 1) {
-				return SendExpectDataArray ("SORT", args);
-			}
-			else {
-				args [1] = "STORE";
-				args [2] = destination;
-				int n = SendExpectInt ("SORT", args);
-				return new byte [n][];
-			}
+			Array.Copy (options, 0, args, 1, options.Length);
+
+			return SendExpectDataArray ("SORT", args);
+		}
+
+		public int SortStore (string key, string destination, params object [] options)
+		{
+			if (key == null)
+				throw new ArgumentNullException ("key");
+			if (destination == null)
+				throw new ArgumentNullException ("destination");
+
+			object [] args = new object [3 + options.Length];
+			args [0] = key;
+			args [1] = "STORE";
+			args [2] = destination;
+			Array.Copy (options, 0, args, 3, options.Length);
+
+			return SendExpectInt ("SORT", args);
 		}
 
 		public byte [] GetSet (string key, byte [] value)
