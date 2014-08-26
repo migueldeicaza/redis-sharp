@@ -708,6 +708,19 @@ public class Redis : IDisposable {
 		return SendExpectStringArray ("KEYS", pattern);
 	}
 
+	public string [] Scan (ref int cursor, params object [] args)
+	{
+		SendCommand ("SCAN", PrependArgs (args, cursor));
+		object [] result = ReadMixedArray ();
+		cursor = int.Parse (Encoding.UTF8.GetString (result [0] as byte []));
+		object [] dataArray = result [1] as object [];
+
+		string [] keys = new string [dataArray.Length];
+		for (int i = 0; i < keys.Length; i++)
+			keys[i] = Encoding.UTF8.GetString (dataArray [i] as byte []);
+		return keys;
+	}
+
 	public byte [][] MGet (params string [] keys)
 	{
 		if (keys == null)
