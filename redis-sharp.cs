@@ -182,28 +182,30 @@ public class Redis : IDisposable {
 
 	public byte [][] Sort (SortOptions options)
 	{
-		return Sort (options.Key, options.StoreInKey, options.ToArgs());
+		if (options.StoreInKey == null)
+			return Sort (options.Key, options.ToArgs ());
+		else {
+			int n = SortStore (options.StoreInKey, options.Key, options.ToArgs ());
+			return new byte [n][];
+		}
 	}
 
-	public byte [][] Sort (string key, string destination, params object [] options)
+	public byte [][] Sort (string key, params object [] options)
 	{
 		if (key == null)
 			throw new ArgumentNullException ("key");
 
-		int offset = string.IsNullOrEmpty (destination) ? 1 : 3;
-		object [] args = new object [offset + options.Length];
+		return SendExpectDataArray ("SORT", PrependArgs (options, key));
+	}
 
-		args [0] = key;
-		Array.Copy (options, 0, args, offset, options.Length);
-		if (offset == 1) {
-			return SendExpectDataArray ("SORT", args);
-		}
-		else {
-			args [1] = "STORE";
-			args [2] = destination;
-			int n = SendExpectInt ("SORT", args);
-			return new byte [n][];
-		}
+	public int SortStore (string destination, string key, params object [] options)
+	{
+		if (key == null)
+			throw new ArgumentNullException ("key");
+		if (destination == null)
+			throw new ArgumentNullException ("destination");
+
+		return SendExpectInt ("SORT", PrependArgs (options, key, "STORE", destination));
 	}
 	
 	public byte [] GetSet (string key, byte [] value)
@@ -947,6 +949,19 @@ public class Redis : IDisposable {
 			//ExpectSuccess ();      // disable for derived classes
 			socket.Close ();
 			socket = null;
+		}
+	}
+
+	// prepend additional arguments to args array
+	protected static object [] PrependArgs (object [] args, params object [] preArgs)
+	{
+		if (args.Length == 0)
+			return preArgs;
+		else {
+			object [] newArgs = new object [preArgs.Length + args.Length];
+			Array.Copy (preArgs, 0, newArgs, 0, preArgs.Length);
+			Array.Copy (args, 0, newArgs, preArgs.Length, args.Length);
+			return newArgs;
 		}
 	}
 }

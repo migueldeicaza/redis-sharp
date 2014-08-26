@@ -109,7 +109,7 @@ class Test {
 		so.Lexographically = true;
 		assert ((s = Encoding.UTF8.GetString(r.Sort (so) [0])) == "another value",
 			"expected Sort result \"another value\", got \"" + s + "\"");
-		assert ((i = r.Sort ("alist", "alist", new object [] {"ALPHA"}).Length) == 2,
+		assert ((i = r.SortStore ("alist", "alist", "ALPHA")) == 2,
 			"expected Sort result 2, got {0}", i);
 		byte[][] values = r.ListRange("alist", 0, 1);
 		assert (Encoding.UTF8.GetString(values[0]).Equals("another value"),
