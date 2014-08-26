@@ -8,7 +8,7 @@
 //
 // Licensed under the same terms of reddis: new BSD license.
 //
-#define DEBUG
+//#define DEBUG
 
 using System;
 using System.IO;
@@ -265,7 +265,7 @@ public class Redis : IDisposable {
 
 	byte [] end_data = new byte [] { (byte) '\r', (byte) '\n' };
 
-	bool SendDataCommand (byte [] data, string cmd, params object [] args)
+	protected bool SendDataCommand (byte [] data, string cmd, params object [] args)
 	{
 		string resp = "*" + (1 + args.Length + 1).ToString () + "\r\n";
 		resp += "$" + cmd.Length + "\r\n" + cmd + "\r\n";
@@ -304,7 +304,7 @@ public class Redis : IDisposable {
 		return true;
 	}
 
-	bool SendCommand (string cmd, params object [] args)
+	protected bool SendCommand (string cmd, params object [] args)
 	{
 		if (socket == null)
 			Connect ();
@@ -334,12 +334,12 @@ public class Redis : IDisposable {
 	}
 	
 	[Conditional ("DEBUG")]
-	void Log (string id, string message)
+	protected void Log (string id, string message)
 	{
 		Console.WriteLine(id + ": " + message.Trim().Replace("\r\n", " "));
 	}
 
-	void ExpectSuccess ()
+	protected void ExpectSuccess ()
 	{
 		int c = bstream.ReadByte ();
 		if (c == -1)
@@ -351,7 +351,7 @@ public class Redis : IDisposable {
 			throw new ResponseException (s.StartsWith ("ERR ") ? s.Substring (4) : s);
 	}
 	
-	void SendExpectSuccess (string cmd, params object [] args)
+	protected void SendExpectSuccess (string cmd, params object [] args)
 	{
 		if (!SendCommand (cmd, args))
 			throw new Exception ("Unable to connect");
@@ -359,33 +359,29 @@ public class Redis : IDisposable {
 		ExpectSuccess ();
 	}	
 
-	int SendDataExpectInt (byte[] data, string cmd, params object [] args)
+	protected int SendDataExpectInt (byte[] data, string cmd, params object [] args)
 	{
 		if (!SendDataCommand (data, cmd, args))
 			throw new Exception ("Unable to connect");
 
-		int c = bstream.ReadByte ();
-		if (c == -1)
-			throw new ResponseException ("No more data");
+		return ReadInt ();
+	}
 
-		string s = ReadLine ();
-		Log ("S", (char)c + s);
-		if (c == '-')
-			throw new ResponseException (s.StartsWith ("ERR ") ? s.Substring (4) : s);
-		if (c == ':'){
-			int i;
-			if (int.TryParse (s, out i))
-				return i;
-		}
-		throw new ResponseException ("Unknown reply on integer request: " + c + s);
-	}	
-
-	int SendExpectInt (string cmd, params object [] args)
+	protected int SendExpectInt (string cmd, params object [] args)
 	{
 		if (!SendCommand (cmd, args))
 			throw new Exception ("Unable to connect");
 
-		int c = bstream.ReadByte ();
+		return ReadInt ();
+	}
+
+	protected int ReadInt (params int [] lookahead)
+	{
+		int c;
+		if (lookahead.Length == 1)
+			c = lookahead [0];
+		else
+			c = bstream.ReadByte ();
 		if (c == -1)
 			throw new ResponseException ("No more data");
 
@@ -401,7 +397,7 @@ public class Redis : IDisposable {
 		throw new ResponseException ("Unknown reply on integer request: " + c + s);
 	}	
 
-	string SendExpectString (string cmd, params object [] args)
+	protected string SendExpectString (string cmd, params object [] args)
 	{
 		if (!SendCommand (cmd, args))
 			throw new Exception ("Unable to connect");
@@ -423,7 +419,7 @@ public class Redis : IDisposable {
 	//
 	// This one does not throw errors
 	//
-	string SendGetString (string cmd, params object [] args)
+	protected string SendGetString (string cmd, params object [] args)
 	{
 		if (!SendCommand (cmd, args))
 			throw new Exception ("Unable to connect");
@@ -431,7 +427,7 @@ public class Redis : IDisposable {
 		return ReadLine ();
 	}	
 	
-	byte [] SendExpectData (string cmd, params object [] args)
+	protected byte [] SendExpectData (string cmd, params object [] args)
 	{
 		if (!SendCommand (cmd, args))
 			throw new Exception ("Unable to connect");
@@ -439,23 +435,26 @@ public class Redis : IDisposable {
 		return ReadData ();
 	}
 
-	byte [] ReadData ()
+	protected byte [] ReadData (params int [] lookahead)
 	{
-		string s = ReadLine ();
-		Log ("S", s);
-		if (s.Length == 0)
-			throw new ResponseException ("Zero length respose");
-		
-		char c = s [0];
-		if (c == '-')
-			throw new ResponseException (s.StartsWith ("-ERR ") ? s.Substring (5) : s.Substring (1));
+		int c;
+		if (lookahead.Length == 1)
+			c = lookahead [0];
+		else
+			c = bstream.ReadByte ();
+		if (c == -1)
+			throw new ResponseException("No more data");
 
+		string s = ReadLine ();
+		Log ("S", (char)c + s);
+		if (c == '-')
+			throw new ResponseException (s.StartsWith ("ERR ") ? s.Substring (4) : s);
 		if (c == '$'){
 			if (s == "$-1")
 				return null;
 			int n;
-			
-			if (Int32.TryParse (s.Substring (1), out n)){
+
+			if (int.TryParse (s, out n)){
 				byte [] retbuf = new byte [n];
 
 				int bytesRead = 0;
@@ -484,8 +483,46 @@ public class Redis : IDisposable {
 		}
 		*/
 
-		throw new ResponseException ("Unexpected reply: " + s);
+		throw new ResponseException ("Unexpected reply: " + (char)c + s);
 	}	
+
+	// read array of elements with mixed type (bulk string, integer, nested array)
+	protected object [] ReadMixedArray (params int[] lookahead)
+	{
+		int c;
+		if (lookahead.Length == 1)
+			c = lookahead [0];
+		else
+			c = bstream.ReadByte ();
+		if (c == -1)
+			throw new ResponseException("No more data");
+
+		string s = ReadLine();
+		Log("S", (char)c + s);
+		if (c == '-')
+			throw new ResponseException(s.StartsWith("ERR ") ? s.Substring(4) : s);
+		if (c == '*') {
+			int count;
+			if (int.TryParse (s, out count)) {
+				object [] result = new object [count];
+
+				for (int i = 0; i < count; i++)
+				{
+					int peek = bstream.ReadByte ();
+					if (peek == '$')
+						result[i] = ReadData (peek);
+					else if (peek == ':')
+						result[i] = ReadInt (peek);
+					else if (peek == '*')
+						result[i] = ReadMixedArray (peek);
+					else
+						throw new ResponseException("Unknown array element: " + c + s);
+				}
+				return result;
+			}
+		}
+		throw new ResponseException("Unknown reply on array request: " + c + s);
+	}
 
 	public bool ContainsKey (string key)
 	{
@@ -875,6 +912,23 @@ public class Redis : IDisposable {
 	}
 	#endregion
 
+	#region Pub commands
+	public int Publish (string channel, string message)
+	{
+		return Publish (channel, Encoding.UTF8.GetBytes (message));
+	}
+
+	public int Publish (string channel, byte [] message)
+	{
+		if (channel == null)
+			throw new ArgumentNullException ("channel");
+		if (message == null)
+			throw new ArgumentNullException ("message");
+
+		return SendDataExpectInt (message, "PUBLISH", channel);
+	}
+	#endregion
+
 	public void Dispose ()
 	{
 		Dispose (true);
@@ -889,8 +943,8 @@ public class Redis : IDisposable {
 	protected virtual void Dispose (bool disposing)
 	{
 		if (disposing){
-			SendCommand ("QUIT");
-			ExpectSuccess ();
+			//SendCommand ("QUIT");  // disable for derived classes
+			//ExpectSuccess ();      // disable for derived classes
 			socket.Close ();
 			socket = null;
 		}

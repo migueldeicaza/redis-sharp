@@ -2,10 +2,27 @@ using System;
 using System.Text;
 using System.Collections.Generic;
 
+using RedisSharp;
+
 class Test {
 
 	static int nPassed = 0;
 	static int nFailed = 0;
+	static int nReceived = 0;
+
+	static void MessageReceived (object sender, RedisSubEventArgs e)
+	{
+		nReceived ++;
+		switch (e.kind) {
+		case "psubscribe":
+		case "punsubscribe":
+			Console.WriteLine ("Received {0} for pattern {1}", e.kind, e.pattern);
+			break;
+		default:
+			Console.WriteLine ("Received {0} on channel {1}", e.kind, e.channel);
+			break;
+		}
+	}
 
 	static void Main (string[] args)
 	{
@@ -126,6 +143,26 @@ class Test {
 
 		r.FlushDb ();
 		assert ((i = r.Keys.Length) == 0, "there should be no keys but there were {0}", i);
+
+		// Pub/Sub tests
+		RedisSub rs = new RedisSub(r.Host, r.Port);
+		RedisSubEventHandler eventHandler = new RedisSubEventHandler (MessageReceived);
+		rs.MessageReceived += eventHandler;
+		rs.SubscribeReceived += eventHandler;
+		rs.UnsubscribeReceived += eventHandler;
+
+		rs.Subscribe ("foo");
+		rs.PSubscribe ("fo?");
+		rs.PSubscribe ("f*");
+		r.Publish ("foo", "bar");
+		rs.Unsubscribe("foo");
+		rs.PUnsubscribe(/* all pattern subscriptions */);
+
+		for (i = 0; i < 10 && nReceived < 9; i++)
+			System.Threading.Thread.Sleep(100);
+		assert (nReceived == 9, "received {0} messages, extected 9", nReceived);
+
+		rs.Dispose ();
 
 		r.Dispose ();
 
