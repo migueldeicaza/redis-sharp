@@ -31,7 +31,7 @@ namespace RedisSharp {
 		{
 		}
 
-		#region Connection commands
+		#region Connection command additions
 		int db;
 		public int Db {
 			get {
@@ -46,11 +46,6 @@ namespace RedisSharp {
 		#endregion
 
 		#region String commands
-		public string this [string key] {
-			get { return GetString (key); }
-			set { Set (key, value); }
-		}
-
 		public void Set (string key, string value)
 		{
 			if (key == null)
@@ -97,22 +92,6 @@ namespace RedisSharp {
 				throw new ArgumentException ("value exceeds 1G", "value");
 
 			return SendDataExpectInt (value, "SETNX", key) > 0 ? true : false;
-		}
-
-		public void Set (IDictionary<string,string> dict)
-		{
-			if (dict == null)
-				throw new ArgumentNullException ("dict");
-
-			Set (dict.ToDictionary(k => k.Key, v => Encoding.UTF8.GetBytes(v.Value)));
-		}
-
-		public void Set (IDictionary<string,byte []> dict)
-		{
-			if (dict == null)
-				throw new ArgumentNullException ("dict");
-
-			MSet (dict.Keys.ToArray (), dict.Values.ToArray ());
 		}
 
 		public void MSet (string [] keys, byte [][] values)
@@ -169,6 +148,29 @@ namespace RedisSharp {
 
 			return SendExpectDataArray ("MGET", keys);
 		}
+		#endregion
+
+		#region String command additions
+		public string this [string key] {
+			get { return GetString (key); }
+			set { Set (key, value); }
+		}
+
+		public void Set (IDictionary<string,string> dict)
+		{
+			if (dict == null)
+				throw new ArgumentNullException ("dict");
+
+			Set (dict.ToDictionary(k => k.Key, v => Encoding.UTF8.GetBytes(v.Value)));
+		}
+
+		public void Set (IDictionary<string,byte []> dict)
+		{
+			if (dict == null)
+				throw new ArgumentNullException ("dict");
+
+			MSet (dict.Keys.ToArray (), dict.Values.ToArray ());
+		}
 
 		public int Increment (string key)
 		{
@@ -200,20 +202,6 @@ namespace RedisSharp {
 		#endregion
 
 		#region Key commands
-		public string [] Keys {
-			get {
-				return GetKeys("*");
-			}
-		}
-
-		public string [] GetKeys (string pattern)
-		{
-			if (pattern == null)
-				throw new ArgumentNullException ("pattern");
-
-			return SendExpectStringArray ("KEYS", pattern);
-		}
-
 		public string [] Scan (ref int cursor, params object [] args)
 		{
 			SendCommand ("SCAN", PrependArgs (args, cursor));
@@ -225,17 +213,6 @@ namespace RedisSharp {
 			for (int i = 0; i < keys.Length; i++)
 				keys[i] = ToString (dataArray [i] as byte []);
 			return keys;
-		}
-
-		public byte [][] Sort (SortOptions options)
-		{
-			if (options.StoreInKey != null) {
-				int n = SortStore (options.StoreInKey, options.Key, options.ToArgs ());
-				return new byte [n][];
-			}
-			else {
-				return Sort (options.Key, options.ToArgs ());
-			}
 		}
 
 		public byte [][] Sort (string key, params object [] options)
@@ -256,6 +233,61 @@ namespace RedisSharp {
 
 			SendCommand ("SORT", PrependArgs (options, key, "STORE", destination));
 			return ReadInt ();
+		}
+
+		public string RandomKey ()
+		{
+			return SendExpectString ("RANDOMKEY");
+		}
+
+		public bool Rename (string oldKeyname, string newKeyname)
+		{
+			if (oldKeyname == null)
+				throw new ArgumentNullException ("oldKeyname");
+			if (newKeyname == null)
+				throw new ArgumentNullException ("newKeyname");
+			return SendGetString ("RENAME", oldKeyname, newKeyname) [0] == '+';
+		}
+
+		public bool Expire (string key, int seconds)
+		{
+			if (key == null)
+				throw new ArgumentNullException ("key");
+			return SendExpectInt ("EXPIRE", key, seconds) == 1;
+		}
+
+		public bool ExpireAt (string key, int time)
+		{
+			if (key == null)
+				throw new ArgumentNullException ("key");
+			return SendExpectInt ("EXPIREAT", key, time) == 1;
+		}
+		#endregion
+
+		#region Key command additions
+		public string [] Keys {
+			get {
+				return GetKeys("*");
+			}
+		}
+
+		public string [] GetKeys (string pattern)
+		{
+			if (pattern == null)
+				throw new ArgumentNullException ("pattern");
+
+			return SendExpectStringArray ("KEYS", pattern);
+		}
+
+		public byte [][] Sort (SortOptions options)
+		{
+			if (options.StoreInKey != null) {
+				int n = SortStore (options.StoreInKey, options.Key, options.ToArgs ());
+				return new byte [n][];
+			}
+			else {
+				return Sort (options.Key, options.ToArgs ());
+			}
 		}
 
 		public bool ContainsKey (string key)
@@ -296,34 +328,6 @@ namespace RedisSharp {
 			throw new ResponseException ("Invalid value");
 		}
 
-		public string RandomKey ()
-		{
-			return SendExpectString ("RANDOMKEY");
-		}
-
-		public bool Rename (string oldKeyname, string newKeyname)
-		{
-			if (oldKeyname == null)
-				throw new ArgumentNullException ("oldKeyname");
-			if (newKeyname == null)
-				throw new ArgumentNullException ("newKeyname");
-			return SendGetString ("RENAME", oldKeyname, newKeyname) [0] == '+';
-		}
-
-		public bool Expire (string key, int seconds)
-		{
-			if (key == null)
-				throw new ArgumentNullException ("key");
-			return SendExpectInt ("EXPIRE", key, seconds) == 1;
-		}
-
-		public bool ExpireAt (string key, int time)
-		{
-			if (key == null)
-				throw new ArgumentNullException ("key");
-			return SendExpectInt ("EXPIREAT", key, time) == 1;
-		}
-
 		public int TimeToLive (string key)
 		{
 			if (key == null)
@@ -342,11 +346,6 @@ namespace RedisSharp {
 		public void Save ()
 		{
 			SendExpectSuccess ("SAVE");
-		}
-
-		public void BackgroundSave ()
-		{
-			SendExpectSuccess ("BGSAVE");
 		}
 
 		public void FlushAll ()
@@ -368,6 +367,13 @@ namespace RedisSharp {
 				return new DateTime (UnixEpoch) + TimeSpan.FromSeconds (t);
 			}
 		}
+		#endregion
+
+		#region Server command additions
+		public void BackgroundSave ()
+		{
+			SendExpectSuccess ("BGSAVE");
+		}
 
 		public Dictionary<string,string> GetInfo ()
 		{
@@ -384,7 +390,7 @@ namespace RedisSharp {
 		}
 		#endregion
 
-		#region List commands
+		#region List command additions
 		public byte[][] ListRange(string key, int start, int end)
 		{
 			return SendExpectDataArray ("LRANGE", key, start, end);
@@ -436,7 +442,7 @@ namespace RedisSharp {
 		}
 		#endregion
 
-		#region Set commands
+		#region Set command additions
 		public bool AddToSet (string key, byte[] member)
 		{
 			return SendDataExpectInt(member, "SADD", key) > 0;
