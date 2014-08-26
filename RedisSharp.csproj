@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="3.5" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
@@ -39,7 +39,9 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="redis-sharp.cs" />
+    <Compile Include="RedisClient.cs" />
+    <Compile Include="RedisSub.cs" />
+    <Compile Include="Redis.cs" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Properties\" />

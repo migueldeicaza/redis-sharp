@@ -1,11 +1,28 @@
 using System;
-using System.Text;
+using System.Text.RegularExpressions;
 using System.Collections.Generic;
+
+using RedisSharp;
 
 class Test {
 
 	static int nPassed = 0;
 	static int nFailed = 0;
+	static int nReceived = 0;
+
+	static void MessageReceived (object sender, RedisSubEventArgs e)
+	{
+		nReceived ++;
+		switch (e.kind) {
+		case "psubscribe":
+		case "punsubscribe":
+			Console.WriteLine ("Received {0} for pattern {1}", e.kind, e.pattern);
+			break;
+		default:
+			Console.WriteLine ("Received {0} on channel {1}", e.kind, e.channel);
+			break;
+		}
+	}
 
 	static void Main (string[] args)
 	{
@@ -33,11 +50,11 @@ class Test {
 
 		byte [][] arr = r.MGet ("foo", "bar", "foo bär");
 		assert (arr.Length == 3, "expected 3 values");
-		assert ((s = Encoding.UTF8.GetString (arr [0])) == "bar",
+		assert ((s = Redis.ToString (arr [0])) == "bar",
 			"expected \"foo\" to be \"bar\", got \"{0}\"", s);
-		assert ((s = Encoding.UTF8.GetString (arr [1])) == "foo",
+		assert ((s = Redis.ToString (arr [1])) == "foo",
 			"expected \"bar\" to be \"foo\", got \"{0}\"", s);
-		assert ((s = Encoding.UTF8.GetString (arr [2])) == "bär foo",
+		assert ((s = Redis.ToString (arr [2])) == "bär foo",
 			"expected \"foo bär\" to be \"bär foo\", got \"{0}\"", s);
 		
 		r ["{one}"] = "world";
@@ -78,10 +95,10 @@ class Test {
 		r.RightPush("alist", "another value");
 		assert (r.ListLength("alist") == 2, "List length should have been 2");
 
-		string value = Encoding.UTF8.GetString(r.ListIndex("alist", 1));
+		string value = Redis.ToString (r.ListIndex("alist", 1));
 		if(!value.Equals("another value"))
 			Console.WriteLine("error: Received {0} and should have been 'another value'", value);
-		value = Encoding.UTF8.GetString(r.LeftPop("alist"));
+		value = Redis.ToString (r.LeftPop("alist"));
 		if (!value.Equals("avalue"))
 			Console.WriteLine("error: Received {0} and should have been 'avalue'", value);
 		if (r.ListLength("alist") != 1)
@@ -90,19 +107,19 @@ class Test {
 		SortOptions so = new SortOptions();
 		so.Key = "alist";
 		so.Lexographically = true;
-		assert ((s = Encoding.UTF8.GetString(r.Sort (so) [0])) == "another value",
+		assert ((s = Redis.ToString (r.Sort (so) [0])) == "another value",
 			"expected Sort result \"another value\", got \"" + s + "\"");
-		assert ((i = r.Sort ("alist", "alist", new object [] {"ALPHA"}).Length) == 2,
+		assert ((i = r.SortStore ("alist", "alist", new object [] {"ALPHA"})) == 2,
 			"expected Sort result 2, got {0}", i);
 		byte[][] values = r.ListRange("alist", 0, 1);
-		assert (Encoding.UTF8.GetString(values[0]).Equals("another value"),
+		assert (Redis.ToString (values[0]).Equals("another value"),
 			"range did not return the right values");
 
-		assert (r.AddToSet("FOO", Encoding.UTF8.GetBytes("BAR")), "problem adding to set");
-		assert (r.AddToSet("FOO", Encoding.UTF8.GetBytes("BAZ")), "problem adding to set");
+		assert (r.AddToSet("FOO", Redis.ToData ("BAR")), "problem adding to set");
+		assert (r.AddToSet("FOO", Redis.ToData ("BAZ")), "problem adding to set");
 		assert (r.AddToSet("FOO", "Hoge"), "problem adding string to set");
 		assert (r.CardinalityOfSet("FOO") == 3, "cardinality should have been 3 after adding 3 items to set");
-		assert (r.IsMemberOfSet("FOO", Encoding.UTF8.GetBytes("BAR")), "BAR should have been in the set");
+		assert (r.IsMemberOfSet("FOO", Redis.ToData ("BAR")), "BAR should have been in the set");
 		assert (r.IsMemberOfSet("FOO", "BAR"), "BAR should have been in the set");
 		byte[][] members = r.GetMembersOfSet("FOO");
 		assert (members.Length == 3, "set should have had 3 members");
@@ -111,9 +128,9 @@ class Test {
 		assert (!r.RemoveFromSet("FOO", "Hoge"), "Hoge should not have existed to be removed");
 		assert (2 == r.GetMembersOfSet("FOO").Length, "set should have 2 members after removing Hoge");
 		
-		assert (r.AddToSet("BAR", Encoding.UTF8.GetBytes("BAR")), "problem adding to set");
-		assert (r.AddToSet("BAR", Encoding.UTF8.GetBytes("ITEM1")), "problem adding to set");
-		assert (r.AddToSet("BAR", Encoding.UTF8.GetBytes("ITEM2")), "problem adding string to set");
+		assert (r.AddToSet("BAR", Redis.ToData ("BAR")), "problem adding to set");
+		assert (r.AddToSet("BAR", Redis.ToData ("ITEM1")), "problem adding to set");
+		assert (r.AddToSet("BAR", Redis.ToData ("ITEM2")), "problem adding string to set");
 		
 		assert (r.GetUnionOfSets("FOO","BAR").Length == 4, "resulting union should have 4 items");
 		assert (1 == r.GetIntersectionOfSets("FOO", "BAR").Length, "resulting intersection should have 1 item");
@@ -126,6 +143,46 @@ class Test {
 
 		r.FlushDb ();
 		assert ((i = r.Keys.Length) == 0, "there should be no keys but there were {0}", i);
+
+		// Pub/Sub tests
+		RedisSub rs = new RedisSub(r.Host, r.Port);
+		RedisSubEventHandler eventHandler = new RedisSubEventHandler (MessageReceived);
+		rs.MessageReceived += eventHandler;
+		rs.SubscribeReceived += eventHandler;
+		rs.UnsubscribeReceived += eventHandler;
+
+		rs.Subscribe ("foo");
+		rs.PSubscribe ("fo?");
+		rs.PSubscribe ("f*");
+		r.Publish ("foo", "bar");
+		rs.Unsubscribe("foo");
+		rs.PUnsubscribe(/* all pattern subscriptions */);
+
+		for (i = 0; i < 10 && nReceived < 9; i++)
+			System.Threading.Thread.Sleep(100);
+		assert (nReceived == 9, "received {0} messages, extected 9", nReceived);
+
+		rs.Dispose ();
+
+		// scan test
+		Match m = Regex.Match (info["redis_version"], "([0-9]+)\\.([0-9]+)\\.([0-9]+)");
+		int [] version = new int [3];
+		if (m.Success)
+			for (i = 0; i < 3; i++)
+				version[i] = int.Parse (m.Groups[i+1].Value);
+		if (version[0] >= 2 && version[1] >= 8) {
+			dict = new Dictionary<string,string> ();
+			for (i = 0; i < 20; i++)
+				dict ["key:" + i] = "val" + i;
+			r.Set (dict);
+			assert ((i = r.DbSize) == 20, "expect 20 keys but there were {0}", i);
+			int cursor = 0;
+			do {
+				string [] keys = r.Scan (ref cursor, "MATCH", "key:*");
+				r.Remove (keys);
+			} while (cursor > 0);
+			assert ((i = r.DbSize) == 0, "expect 0 keys but there were {0}", i);
+		}
 
 		r.Dispose ();
 
