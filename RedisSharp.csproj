@@ -40,6 +40,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="redis-sharp.cs" />
+    <Compile Include="RedisSub.cs" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Properties\" />

@@ -1,11 +1,29 @@
 using System;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Collections.Generic;
+
+using RedisSharp;
 
 class Test {
 
 	static int nPassed = 0;
 	static int nFailed = 0;
+	static int nReceived = 0;
+
+	static void MessageReceived (object sender, RedisSubEventArgs e)
+	{
+		nReceived ++;
+		switch (e.kind) {
+		case "psubscribe":
+		case "punsubscribe":
+			Console.WriteLine ("Received {0} for pattern {1}", e.kind, e.pattern);
+			break;
+		default:
+			Console.WriteLine ("Received {0} on channel {1}", e.kind, e.channel);
+			break;
+		}
+	}
 
 	static void Main (string[] args)
 	{
@@ -92,7 +110,7 @@ class Test {
 		so.Lexographically = true;
 		assert ((s = Encoding.UTF8.GetString(r.Sort (so) [0])) == "another value",
 			"expected Sort result \"another value\", got \"" + s + "\"");
-		assert ((i = r.Sort ("alist", "alist", new object [] {"ALPHA"}).Length) == 2,
+		assert ((i = r.SortStore ("alist", "alist", "ALPHA")) == 2,
 			"expected Sort result 2, got {0}", i);
 		byte[][] values = r.ListRange("alist", 0, 1);
 		assert (Encoding.UTF8.GetString(values[0]).Equals("another value"),
@@ -126,6 +144,47 @@ class Test {
 
 		r.FlushDb ();
 		assert ((i = r.Keys.Length) == 0, "there should be no keys but there were {0}", i);
+
+		// Pub/Sub tests
+		RedisSub rs = new RedisSub(r.Host, r.Port);
+		RedisSubEventHandler eventHandler = new RedisSubEventHandler (MessageReceived);
+		rs.MessageReceived += eventHandler;
+		rs.SubscribeReceived += eventHandler;
+		rs.UnsubscribeReceived += eventHandler;
+
+		rs.Subscribe ("foo");
+		rs.PSubscribe ("fo?");
+		rs.PSubscribe ("f*");
+		r.Publish ("foo", "bar");
+		rs.Unsubscribe("foo");
+		rs.PUnsubscribe(/* all pattern subscriptions */);
+
+		for (i = 0; i < 10 && nReceived < 9; i++)
+			System.Threading.Thread.Sleep(100);
+		assert (nReceived == 9, "received {0} messages, extected 9", nReceived);
+
+		rs.Dispose ();
+
+		// Scan test
+		Match m = Regex.Match (info["redis_version"], "([0-9]+)\\.([0-9]+)\\.([0-9]+)");
+		int [] version = new int [3];
+		if (m.Success)
+			for (i = 0; i < 3; i++)
+				version[i] = int.Parse (m.Groups[i+1].Value);
+		if (version[0] > 2 || version [0] == 2 && version[1] >= 8) {
+			dict = new Dictionary<string,string> ();
+			for (i = 0; i < 20; i++)
+				dict ["key:" + i] = "val" + i;
+			r.Set (dict);
+			assert ((i = r.DbSize) == 20, "expect 20 keys but there were {0}", i);
+			int cursor = 0;
+			do {
+				string [] keys = r.Scan (ref cursor, "MATCH", "key:*");
+				r.Remove (keys);
+			}
+			while (cursor > 0);
+			assert ((i = r.DbSize) == 0, "expect 0 keys but there were {0}", i);
+		}
 
 		r.Dispose ();
 
