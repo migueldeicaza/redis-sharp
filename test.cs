@@ -1,3 +1,5 @@
+// this file is here just as a reference, not usable in a OpenSim C# script
+
 using System;
 using System.Text;
 using System.Collections.Generic;
