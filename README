@@ -3,4 +3,4 @@ This is a C#/.NET client binding for the Redis server, runnable in a [OpenSim](h
 
 The code is licensed under the same terms that the Redis server is, the new BSD license
 
-The binding lives in the redis-sharp.cs file, a sample test file can be found on test.cs
+To use it, cut and paste the full code in a OpenSim C# script
