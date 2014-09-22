@@ -925,3 +925,30 @@ public class SortOptions {
         return args.ToArray ();
     }
 }
+
+// just to output a string to the viewer console
+void debug(string msg){
+    llOwnerSay("debug: "+msg);
+}
+
+// MAIN Script that uses the Redis server
+
+string message = "Hello avatar!";
+string REDIS_IP = "192.168.1.111";
+
+public void default_event_state_entry()
+{
+    debug(message);
+}
+
+public void default_event_touch_start(
+    LSL_Types.LSLInteger total_number)
+{
+    Redis R = new Redis(REDIS_IP);
+    var info = R.GetInfo ();
+    foreach (var k in info.Keys) {
+            llSay(0, (string)k+" "+ info[k]);
+        }
+    string value = R.GetString("T3:status");
+    debug(value);
+}
