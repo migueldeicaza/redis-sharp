@@ -1,4 +1,4 @@
-This is a C#/.NET client binding for the Redis server, runnable in a [OpenSim](http://opensimulator.org) script:
+This is a C#/.NET client binding for the Redis server, runnable in a (OpenSim)[http://opensimulator.org] script:
 
 
 The code is licensed under the same terms that the Redis server is, the new BSD license
