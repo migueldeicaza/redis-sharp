@@ -949,6 +949,4 @@ public void default_event_touch_start(
     foreach (var k in info.Keys) {
             llSay(0, (string)k+" "+ info[k]);
         }
-    string value = R.GetString("T3:status");
-    debug(value);
 }
