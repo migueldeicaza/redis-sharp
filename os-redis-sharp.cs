@@ -597,6 +597,24 @@ public class Redis : System.IDisposable {
         return SendExpectStringArray ("HGETALL", hash);
     }
 
+    public Dictionary<string,string> HGetAll (string hash)
+    {
+        string [] lst = HGetAllArray (hash);        
+        var dict = new Dictionary<string,string>();  
+        string key = "";
+        bool isKey = true;     
+        foreach (var r in lst){
+            if (isKey) {
+                key = r;
+                isKey = false;
+            } else {
+                dict.Add (key, r);
+                isKey = true;   
+            }
+        }
+        return dict;
+    }
+
     public void Shutdown ()
     {
         SendCommand ("SHUTDOWN");
