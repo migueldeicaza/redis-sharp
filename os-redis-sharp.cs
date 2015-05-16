@@ -589,6 +589,14 @@ public class Redis : System.IDisposable {
         SendCommand ("AUTH", passwd);  
     }
 
+    public string[] HGetAllArray (string hash)
+    {
+        if (hash == null)
+            throw new System.ArgumentNullException ("hash");
+
+        return SendExpectStringArray ("HGETALL", hash);
+    }
+
     public void Shutdown ()
     {
         SendCommand ("SHUTDOWN");
