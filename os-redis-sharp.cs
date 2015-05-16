@@ -73,8 +73,7 @@ public class Redis : System.IDisposable {
         if (key == null)
             throw new System.ArgumentNullException ("key");
         if (value == null)
-            throw new System.ArgumentNullException ("value");
-        
+            throw new System.ArgumentNullException ("value");        
         Set (key, System.Text.Encoding.UTF8.GetBytes (value));
     }
     
@@ -84,10 +83,8 @@ public class Redis : System.IDisposable {
             throw new System.ArgumentNullException ("key");
         if (value == null)
             throw new System.ArgumentNullException ("value");
-
         if (value.Length > 1073741824)
             throw new System.ArgumentException ("value exceeds 1G", "value");
-
         if (!SendDataCommand (value, "SET", key))
             throw new System.Exception ("Unable to connect");
         ExpectSuccess ();
@@ -98,8 +95,7 @@ public class Redis : System.IDisposable {
         if (key == null)
             throw new System.ArgumentNullException ("key");
         if (value == null)
-            throw new System.ArgumentNullException ("value");
-        
+            throw new System.ArgumentNullException ("value");        
         return SetNX (key, System.Text.Encoding.UTF8.GetBytes (value));
     }
     
@@ -109,28 +105,11 @@ public class Redis : System.IDisposable {
             throw new System.ArgumentNullException ("key");
         if (value == null)
             throw new System.ArgumentNullException ("value");
-
         if (value.Length > 1073741824)
             throw new System.ArgumentException ("value exceeds 1G", "value");
 
         return SendDataExpectInt (value, "SETNX", key) > 0 ? true : false;
     }
-
-    /*public void Set (System.Linq.IDictionary<string,string> dict)
-    {
-        if (dict == null)
-            throw new System.ArgumentNullException ("dict");
-
-        Set (dict.ToDictionary(k => k.Key, v => System.Text.Encoding.UTF8.GetBytes(v.Value)));
-    }
-
-    public void Set (System.Linq.IDictionary<string,byte []> dict)
-    {
-        if (dict == null)
-            throw new System.ArgumentNullException ("dict");
-
-        MSet (dict.Keys.ToArray (), dict.Values.ToArray ());
-    }*/
 
     public void MSet (string [] keys, byte [][] values)
     {
@@ -151,8 +130,7 @@ public class Redis : System.IDisposable {
             ms.Write (vLength, 0, vLength.Length);
             ms.Write (val, 0, val.Length);
             ms.Write (nl, 0, nl.Length);
-        }
-        
+        }        
         SendDataRESP (ms.ToArray (), "*" + (keys.Length * 2 + 1) + "\r\n$4\r\nMSET\r\n");
         ExpectSuccess ();
     }
@@ -180,7 +158,6 @@ public class Redis : System.IDisposable {
     {
         if (key == null)
             throw new System.ArgumentNullException ("key");
-
         int offset = string.IsNullOrEmpty (destination) ? 1 : 3;
         object [] args = new object [offset + options.Length];
 
@@ -209,7 +186,6 @@ public class Redis : System.IDisposable {
 
         if (!SendDataCommand (value, "GETSET", key))
             throw new System.Exception ("Unable to connect");
-
         return ReadData ();
     }
 
@@ -225,8 +201,7 @@ public class Redis : System.IDisposable {
     string ReadLine ()
     {
         System.Text.StringBuilder sb = new System.Text.StringBuilder ();
-        int c;
-        
+        int c;        
         while ((c = bstream.ReadByte ()) != -1){
             if (c == '\r')
                 continue;
@@ -248,14 +223,11 @@ public class Redis : System.IDisposable {
             socket = null;
             return;
         }
-        bstream = new System.IO.BufferedStream (new System.Net.Sockets.NetworkStream (socket), 16*1024);
-        
+        bstream = new System.IO.BufferedStream (new System.Net.Sockets.NetworkStream (socket), 16*1024);       
         if (Password != null)
             SendExpectSuccess ("AUTH", Password);
     }
-
     byte [] end_data = new byte [] { (byte) '\r', (byte) '\n' };
-
     bool SendDataCommand (byte [] data, string cmd, params object [] args)
     {
         string resp = "*" + (1 + args.Length + 1).ToString () + "\r\n";
@@ -266,7 +238,6 @@ public class Redis : System.IDisposable {
             resp += "$" + argStrLength + "\r\n" + argStr + "\r\n";
         }
         resp +=    "$" + data.Length + "\r\n";
-
         return SendDataRESP (data, resp);
     }
 
@@ -276,7 +247,6 @@ public class Redis : System.IDisposable {
             Connect ();
         if (socket == null)
             return false;
-
         byte [] r = System.Text.Encoding.UTF8.GetBytes (resp);
         try {
             socket.Send (r);
@@ -288,7 +258,6 @@ public class Redis : System.IDisposable {
             // timeout;
             socket.Close ();
             socket = null;
-
             return false;
         }
         return true;
@@ -300,7 +269,6 @@ public class Redis : System.IDisposable {
             Connect ();
         if (socket == null)
             return false;
-
         string resp = "*" + (1 + args.Length).ToString () + "\r\n";
         resp += "$" + cmd.Length + "\r\n" + cmd + "\r\n";
         foreach (object arg in args) {
@@ -308,7 +276,6 @@ public class Redis : System.IDisposable {
             int argStrLength = System.Text.Encoding.UTF8.GetByteCount(argStr);
             resp += "$" + argStrLength + "\r\n" + argStr + "\r\n";
         }
-
         byte [] r = System.Text.Encoding.UTF8.GetBytes (resp);
         try {
             socket.Send (r);
@@ -316,7 +283,6 @@ public class Redis : System.IDisposable {
             // timeout;
             socket.Close ();
             socket = null;
-
             return false;
         }
         return true;
@@ -337,7 +303,6 @@ public class Redis : System.IDisposable {
     {
         if (!SendCommand (cmd, args))
             throw new System.Exception ("Unable to connect");
-
         ExpectSuccess ();
     }    
 
@@ -345,11 +310,9 @@ public class Redis : System.IDisposable {
     {
         if (!SendDataCommand (data, cmd, args))
             throw new System.Exception ("Unable to connect");
-
         int c = bstream.ReadByte ();
         if (c == -1)
             throw new ResponseException ("No more data");
-
         string s = ReadLine ();
         if (c == '-')
             throw new ResponseException (s.StartsWith ("ERR ") ? s.Substring (4) : s);
@@ -365,11 +328,9 @@ public class Redis : System.IDisposable {
     {
         if (!SendCommand (cmd, args))
             throw new System.Exception ("Unable to connect");
-
         int c = bstream.ReadByte ();
         if (c == -1)
             throw new ResponseException ("No more data");
-
         string s = ReadLine ();
         if (c == '-')
             throw new ResponseException (s.StartsWith ("ERR ") ? s.Substring (4) : s);
@@ -385,17 +346,14 @@ public class Redis : System.IDisposable {
     {
         if (!SendCommand (cmd, args))
             throw new System.Exception ("Unable to connect");
-
         int c = bstream.ReadByte ();
         if (c == -1)
             throw new ResponseException ("No more data");
-
         string s = ReadLine ();
         if (c == '-')
             throw new ResponseException (s.StartsWith ("ERR ") ? s.Substring (4) : s);
         if (c == '+')
-            return s;
-        
+            return s;        
         throw new ResponseException ("Unknown reply on integer request: " + c + s);
     }    
 
@@ -406,7 +364,6 @@ public class Redis : System.IDisposable {
     {
         if (!SendCommand (cmd, args))
             throw new System.Exception ("Unable to connect");
-
         return ReadLine ();
     }    
     
@@ -414,7 +371,6 @@ public class Redis : System.IDisposable {
     {
         if (!SendCommand (cmd, args))
             throw new System.Exception ("Unable to connect");
-
         return ReadData ();
     }
 
@@ -422,17 +378,14 @@ public class Redis : System.IDisposable {
     {
         string s = ReadLine ();
         if (s.Length == 0)
-            throw new ResponseException ("Zero length respose");
-        
+            throw new ResponseException ("Zero length respose");        
         char c = s [0];
         if (c == '-')
             throw new ResponseException (s.StartsWith ("-ERR ") ? s.Substring (5) : s.Substring (1));
-
         if (c == '$'){
             if (s == "$-1")
                 return null;
-            int n;
-            
+            int n;            
             if (System.Int32.TryParse (s.Substring (1), out n)){
                 byte [] retbuf = new byte [n];
 
@@ -450,18 +403,6 @@ public class Redis : System.IDisposable {
             }
             throw new ResponseException ("Invalid length");
         }
-
-        /* don't treat arrays here because only one element works -- use DataArray!
-        //returns the number of matches
-        if (c == '*') {
-            int n;
-            if (Int32.TryParse(s.Substring(1), out n)) 
-                return n <= 0 ? new byte [0] : ReadData();
-            
-            throw new ResponseException ("Unexpected length parameter" + r);
-        }
-        */
-
         throw new ResponseException ("Unexpected reply: " + s);
     }    
 
@@ -581,38 +522,12 @@ public class Redis : System.IDisposable {
     {
         SendExpectSuccess ("BGSAVE");
     }
-
+    
     public void Auth (string passwd) 
     {
         if (passwd == null)
             throw new System.ArgumentNullException ("passwd");
         SendCommand ("AUTH", passwd);  
-    }
-
-    public string[] HGetAllArray (string hash)
-    {
-        if (hash == null)
-            throw new System.ArgumentNullException ("hash");
-
-        return SendExpectStringArray ("HGETALL", hash);
-    }
-
-    public Dictionary<string,string> HGetAll (string hash)
-    {
-        string [] lst = HGetAllArray (hash);        
-        var dict = new Dictionary<string,string>();  
-        string key = "";
-        bool isKey = true;     
-        foreach (var r in lst){
-            if (isKey) {
-                key = r;
-                isKey = false;
-            } else {
-                dict.Add (key, r);
-                isKey = true;   
-            }
-        }
-        return dict;
     }
 
     public void Shutdown ()
@@ -645,8 +560,7 @@ public class Redis : System.IDisposable {
     
     public System.DateTime LastSave {
         get {
-            int t = SendExpectInt ("LASTSAVE");
-            
+            int t = SendExpectInt ("LASTSAVE");           
             return new System.DateTime (UnixEpoch) + System.TimeSpan.FromSeconds (t);
         }
     }
@@ -654,13 +568,37 @@ public class Redis : System.IDisposable {
     public Dictionary<string,string> GetInfo ()
     {
         byte [] r = SendExpectData ("INFO");
-        var dict = new Dictionary<string,string>();
-        
+        var dict = new Dictionary<string,string>();        
         foreach (var line in System.Text.Encoding.UTF8.GetString (r).Split ('\n')){
             int p = line.IndexOf (':');
             if (p == -1)
                 continue;
             dict.Add (line.Substring (0, p), line.Substring (p+1));
+        }
+        return dict;
+    }
+
+    public string[] HGetAllArray (string hash)
+    {
+        if (hash == null)
+            throw new System.ArgumentNullException ("hash");
+        return SendExpectStringArray ("HGETALL", hash);
+    }
+
+    public Dictionary<string,string> HGetAll (string hash)
+    {
+        string [] lst = HGetAllArray (hash);        
+        var dict = new Dictionary<string,string>();  
+        string key = "";
+        bool isKey = true;     
+        foreach (var r in lst){
+            if (isKey) {
+                key = r;
+                isKey = false;
+            } else {
+                dict.Add (key, r);
+                isKey = true;   
+            }
         }
         return dict;
     }
@@ -675,7 +613,6 @@ public class Redis : System.IDisposable {
     {
         if (pattern == null)
             throw new System.ArgumentNullException ("pattern");
-
         return SendExpectStringArray ("KEYS", pattern);
     }
 
@@ -684,8 +621,7 @@ public class Redis : System.IDisposable {
         if (keys == null)
             throw new System.ArgumentNullException ("keys");
         if (keys.Length == 0)
-            throw new System.ArgumentException ("keys");
-        
+            throw new System.ArgumentException ("keys");        
         return SendExpectDataArray ("MGET", keys);
     }
 
@@ -705,8 +641,7 @@ public class Redis : System.IDisposable {
             throw new System.Exception("Unable to connect");
         int c = bstream.ReadByte();
         if (c == -1)
-            throw new ResponseException("No more data");
-        
+            throw new ResponseException("No more data");       
         string s = ReadLine();
         if (c == '-')
             throw new ResponseException(s.StartsWith("ERR ") ? s.Substring(4) : s);
@@ -716,8 +651,7 @@ public class Redis : System.IDisposable {
                 byte [][] result = new byte [count][];
                 
                 for (int i = 0; i < count; i++)
-                    result[i] = ReadData();
-                
+                    result[i] = ReadData();                
                 return result;
             }
         }
@@ -830,8 +764,7 @@ public class Redis : System.IDisposable {
     public byte[][] GetUnionOfSets (params string[] keys)
     {
         if (keys == null)
-            throw new System.ArgumentNullException();
-        
+            throw new System.ArgumentNullException();        
         return SendExpectDataArray ("SUNION", keys);
         
     }
@@ -840,10 +773,8 @@ public class Redis : System.IDisposable {
     {
         if (string.IsNullOrEmpty(cmd))
             throw new System.ArgumentNullException ("cmd");
-
         if (keys == null)
             throw new System.ArgumentNullException ("keys");
-
         SendExpectSuccess (cmd, keys);
     }
     
@@ -855,8 +786,7 @@ public class Redis : System.IDisposable {
     public byte[][] GetIntersectionOfSets (params string[] keys)
     {
         if (keys == null)
-            throw new System.ArgumentNullException();
-        
+            throw new System.ArgumentNullException();        
         return SendExpectDataArray ("SINTER", keys);
     }
     
