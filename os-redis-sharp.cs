@@ -582,6 +582,13 @@ public class Redis : System.IDisposable {
         SendExpectSuccess ("BGSAVE");
     }
 
+    public void Auth (string passwd) 
+    {
+        if (passwd == null)
+            throw new System.ArgumentNullException ("passwd");
+        SendCommand ("AUTH", passwd);  
+    }
+
     public void Shutdown ()
     {
         SendCommand ("SHUTDOWN");
