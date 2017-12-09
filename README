@@ -1,6 +1,6 @@
 This is a C#/.NET client binding for the Redis server:
 
-     http://code.google.com/p/redis/
+     https://redis.io/
 
 The code is licensed under the same terms that the Redis server is, the new BSD license
 
