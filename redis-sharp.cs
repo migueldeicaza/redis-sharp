@@ -715,6 +715,62 @@ public class Redis : IDisposable {
 		throw new ResponseException("Unknown reply on multi-request: " + c + s);
 	}
 	
+	
+	public byte[][] SendExpectDataArrayPaged(string cmd, out int nextCursor, params object[] args)
+	{
+		if (!SendCommand(cmd, args))
+			throw new Exception("Unable to connect");
+		int c = bstream.ReadByte();
+		if (c == -1)
+			throw new ResponseException("No more data");
+
+		string s = ReadLine();
+		Log("S", (char)c + s);
+		if (c == '-')
+			throw new ResponseException(s.StartsWith("ERR ") ? s.Substring(4) : s);
+		if (c == '*')
+		{
+			int count;
+			if (int.TryParse(s, out count))
+			{
+
+				byte[] cursorByte = ReadData();
+				int.TryParse(Encoding.UTF8.GetString(cursorByte), out nextCursor);
+
+				int c2 = bstream.ReadByte();
+				if (c2 == -1)
+					throw new ResponseException("No more data");
+
+				s = ReadLine();
+				if (c2 == '*')
+				{
+					int.TryParse(s, out count);
+
+					byte[][] result = new byte[count][];
+					for (int i = 0; i < count; i++)
+						result[i] = ReadData();
+
+					return result;
+				}
+
+
+
+			}
+		}
+		throw new ResponseException("Unknown reply on multi-request: " + c + s);
+	}
+
+
+	public string[] Scan(out int nextCursor,int fromCursor,string pattern,int count)
+	{		
+		string[] args = new string[] {fromCursor.ToString(), "match", pattern, "count", count.ToString()};
+		byte[][] reply = ScanExpectDataArrayPaged("scan", out nextCursor, args);
+		string[] keys = new string[reply.Length];
+		for (int i = 0; i < reply.Length; i++)
+			keys[i] = Encoding.UTF8.GetString(reply[i]);
+		return keys;
+	}
+	
 	#region List commands
 	public byte[][] ListRange(string key, int start, int end)
 	{
